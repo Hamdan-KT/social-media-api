@@ -1,9 +1,11 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-const contextSchema = new mongoose.Schema(
+const { Schema, model } = mongoose;
+
+const contextSchema = new Schema(
 	{
 		user: {
-			type: mongoose.Schema.Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
 		},
@@ -54,4 +56,6 @@ const contextSchema = new mongoose.Schema(
 	}
 );
 
-module.exports = mongoose.model("Context", contextSchema);
+const Context = model("Context", contextSchema);
+
+export { Context };

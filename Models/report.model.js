@@ -1,26 +1,30 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-const reportSchema = new mongoose.Schema({
-  post: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Post",
-    required: true,
-  },
-  reportedBy: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-  ],
-  reportReason: {
-    type: String,
-    required: true,
-  },
-  reportDate: {
-    type: Date,
-    default: Date.now,
-  },
+const { Schema, model } = mongoose;
+
+const reportSchema = new Schema({
+	post: {
+		type: Schema.Types.ObjectId,
+		ref: "Post",
+		required: true,
+	},
+	reportedBy: [
+		{
+			type: Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+		},
+	],
+	reportReason: {
+		type: String,
+		required: true,
+	},
+	reportDate: {
+		type: Date,
+		default: Date.now,
+	},
 });
 
-module.exports = mongoose.model("Report", reportSchema);
+const Report = model("Report", reportSchema);
+
+export { Report };

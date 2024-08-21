@@ -1,18 +1,23 @@
-const mongoose = require("mongoose");
-const preferenceSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      unique: true,
-    },
-    enableContextBasedAuth: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { timestamps: true }
+import mongoose from "mongoose";
+
+const { Schema, model } = mongoose;
+
+const preferenceSchema = new Schema(
+	{
+		user: {
+			type: Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+			unique: true,
+		},
+		enableContextBasedAuth: {
+			type: Boolean,
+			default: false,
+		},
+	},
+	{ timestamps: true }
 );
 
-module.exports = mongoose.model("Preference", preferenceSchema);
+const Preference = model("Preference", preferenceSchema);
+
+export { Preference };
