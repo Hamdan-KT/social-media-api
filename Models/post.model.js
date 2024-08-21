@@ -77,4 +77,4 @@ postSchema.pre("remove", async function (next) {
 
 const Post = model("Post", postSchema);
 
-export { Post };
+export default Post;

@@ -27,4 +27,4 @@ const reportSchema = new Schema({
 
 const Report = model("Report", reportSchema);
 
-export { Report };
+export default Report;

@@ -20,4 +20,4 @@ const preferenceSchema = new Schema(
 
 const Preference = model("Preference", preferenceSchema);
 
-export { Preference };
+export default Preference;

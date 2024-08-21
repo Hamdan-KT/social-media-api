@@ -53,4 +53,5 @@ adminSchema.pre("save", async function (next) {
 
 const Admin = model("Admin", adminSchema);
 
-export { Admin };
+export default Admin;
+

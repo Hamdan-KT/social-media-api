@@ -65,4 +65,4 @@ const suspiciousLoginSchema = new Schema(
 
 const SuspiciousLogin = model("SuspiciousLogin", suspiciousLoginSchema);
 
-export { SuspiciousLogin };
+export default SuspiciousLogin;

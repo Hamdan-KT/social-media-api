@@ -58,4 +58,4 @@ const contextSchema = new Schema(
 
 const Context = model("Context", contextSchema);
 
-export { Context };
+export default Context;

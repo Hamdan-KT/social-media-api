@@ -29,4 +29,4 @@ const emailSchema = new Schema({
 
 const Email = model("Email", emailSchema);
 
-export { Email };
+export default Email;

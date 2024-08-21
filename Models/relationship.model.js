@@ -18,4 +18,4 @@ const relationshipSchema = new Schema(
 
 const Relationship = model("Relationship", relationshipSchema);
 
-export { Relationship };
+export default Relationship;

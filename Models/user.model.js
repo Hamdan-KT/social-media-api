@@ -78,4 +78,4 @@ userSchema.index({ name: "text" });
 
 const User = model("User", userSchema);
 
-export { User };
+export default User;
