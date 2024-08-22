@@ -64,6 +64,10 @@ const userSchema = new Schema(
 				default: [],
 			},
 		],
+		isPublic: {
+			type: Boolean,
+			default: true,
+		},
 		isEmailVerified: {
 			type: Boolean,
 			default: false,
