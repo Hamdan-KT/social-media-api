@@ -18,7 +18,7 @@ const postSchema = new Schema(
 		aspectRatio: {
 			type: Number,
 			required: true,
-			default: 1 / 1,
+			default: 4 / 5,
 			enum: [1 / 1, 4 / 5, 16 / 9],
 		},
 		user: {
