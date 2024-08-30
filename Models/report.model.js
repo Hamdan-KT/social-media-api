@@ -8,13 +8,11 @@ const reportSchema = new Schema({
 		ref: "Post",
 		required: true,
 	},
-	reportedBy: [
-		{
-			type: Schema.Types.ObjectId,
-			ref: "User",
-			required: true,
-		},
-	],
+	reportedBy: {
+		type: Schema.Types.ObjectId,
+		ref: "User",
+		required: true,
+	},
 	reportReason: {
 		type: String,
 		required: true,

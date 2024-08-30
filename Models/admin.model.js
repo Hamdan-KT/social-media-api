@@ -10,26 +10,11 @@ const adminSchema = new Schema(
 			required: true,
 			unique: true,
 			trim: true,
-			minlength: 3,
-			maxlength: 20,
-			validate: {
-				validator: function (value) {
-					return /^[a-zA-Z0-9]+$/.test(value);
-				},
-				message: (props) => `${props.value} is not a valid username!`,
-			},
 		},
-
 		password: {
 			type: String,
 			required: true,
 			trim: true,
-			validate: {
-				validator: function (value) {
-					return value.length >= 6;
-				},
-				message: () => "Password must be at least 6 characters long!",
-			},
 		},
 	},
 	{
@@ -54,4 +39,3 @@ adminSchema.pre("save", async function (next) {
 const Admin = model("Admin", adminSchema);
 
 export default Admin;
-

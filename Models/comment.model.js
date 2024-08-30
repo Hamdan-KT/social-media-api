@@ -4,6 +4,10 @@ const { Schema, model } = mongoose;
 
 const commentSchema = new Schema(
 	{
+		parent_comment: {
+			type: Schema.Types.ObjectId,
+			ref: "Comment",
+		},
 		content: {
 			type: String,
 			required: true,
@@ -15,7 +19,13 @@ const commentSchema = new Schema(
 		},
 		post: {
 			type: Schema.Types.ObjectId,
+			required: true,
 			ref: "Post",
+		},
+		type: {
+			type: String,
+			enum: ["general", "reply"],
+			default: "generel",
 		},
 		likes: [
 			{
@@ -24,6 +34,7 @@ const commentSchema = new Schema(
 				default: [],
 			},
 		],
+		mentions: [{ type: Schema.Types.ObjectId, ref: "User" }],
 	},
 	{
 		timestamps: true,

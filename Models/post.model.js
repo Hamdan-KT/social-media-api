@@ -7,16 +7,19 @@ const { Schema, model } = mongoose;
 
 const postSchema = new Schema(
 	{
-		content: {
-			type: String,
-			trim: true,
-		},
-		fileUrl: {
-			type: String,
-			trim: true,
-		},
-		fileType: {
-			type: String,
+		files: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: "PostMedia",
+				required: true,
+				trim: true,
+			},
+		],
+		aspectRatio: {
+			type: Number,
+			required: true,
+			default: 1 / 1,
+			enum: [1 / 1, 4 / 5, 16 / 9],
 		},
 		user: {
 			type: Schema.Types.ObjectId,
@@ -35,6 +38,24 @@ const postSchema = new Schema(
 				ref: "User",
 			},
 		],
+		caption: {
+			type: String,
+			trim: true,
+		},
+		location: {
+			type: String,
+		},
+		music: {
+			type: String,
+		},
+		hideLikes: {
+			type: Boolean,
+			default: false,
+		},
+		disableComment: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	{
 		timestamps: true,

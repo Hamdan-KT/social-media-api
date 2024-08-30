@@ -5,6 +5,11 @@ import { Database } from "./config/database.js";
 import dotenv from "dotenv";
 import chalk from "chalk";
 dotenv.config();
+// routes imoport
+import authRoutes from "./routes/admin.route.js"
+import userRoutes from "./routes/user.route.js";
+import postRoutes from "./routes/post.route.js";
+import adminRoutes from "./routes/admin.route.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,8 +32,11 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/server-status", (req, res) => {
 	res.status(200).json({ message: "Server is up and running!" });
 });
-
-// other routes
+// main routes config
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+app.use("/posts", postRoutes);
+app.use("/admin", adminRoutes)
 
 // Handle graceful shutdown
 process.on("SIGINT", async () => {
