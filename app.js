@@ -1,15 +1,17 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import "./config/passport.js";
 import { Database } from "./config/database.js";
 import dotenv from "dotenv";
 import chalk from "chalk";
 dotenv.config();
 // routes imoport
-import authRoutes from "./routes/admin.route.js"
-import userRoutes from "./routes/user.route.js";
-import postRoutes from "./routes/post.route.js";
-import adminRoutes from "./routes/admin.route.js";
+import authRoutes from "./routes/admin.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import postRoutes from "./routes/post.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import passport from "passport";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -18,15 +20,18 @@ const PORT = process.env.PORT || 4000;
 const db = new Database(process.env.MONGO_URI);
 db.connect();
 
-// Middleware
-app.use(cors());
-app.use(morgan("dev"));
+// middlewares
 app.use(
-	"/assets",
-	express.static(new URL("./assets", import.meta.url).pathname)
+	cors({
+		origin: "*",
+		credentials: true,
+	})
 );
+app.use(morgan("dev"));
+app.use("/assets", express.static(__dirname + "/assets"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
 
 // Server health check
 app.get("/server-status", (req, res) => {
@@ -36,9 +41,21 @@ app.get("/server-status", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/posts", postRoutes);
-app.use("/admin", adminRoutes)
+app.use("/admin", adminRoutes);
 
-// Handle graceful shutdown
+// error-handling middleware
+app.use((err, req, res, next) => {
+	if (err instanceof ApiError) {
+		res.status(err.statusCode).json({
+			message: err.message,
+			errors: err.errors,
+		});
+	} else {
+		res.status(500).json({ message: "Internal Server Error" });
+	}
+});
+
+// handling graceful shutdown
 process.on("SIGINT", async () => {
 	try {
 		await db.disconnect();
@@ -49,7 +66,7 @@ process.on("SIGINT", async () => {
 	}
 });
 
-// Start the server
+// start the server
 app.listen(PORT, () =>
 	console.log(
 		chalk.bgYellowBright.bold(` Server up and running on port ${PORT}! `)
