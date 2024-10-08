@@ -23,12 +23,12 @@ db.connect();
 // middlewares
 app.use(
 	cors({
-		origin: "*",
+		origin: process.env.CORS_ORIGIN,
 		credentials: true,
 	})
 );
 app.use(morgan("dev"));
-app.use("/assets", express.static(__dirname + "/assets"));
+app.use("/assets", express.static("assets"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
@@ -46,9 +46,9 @@ app.use("/admin", adminRoutes);
 // error-handling middleware
 app.use((err, req, res, next) => {
 	if (err instanceof ApiError) {
-		res.status(err.statusCode).json({
-			message: err.message,
-			errors: err.errors,
+		res.status(err?.statusCode).json({
+			message: err?.message,
+			errors: err?.errors,
 		});
 	} else {
 		res.status(500).json({ message: "Internal Server Error" });

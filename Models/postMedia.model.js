@@ -1,7 +1,4 @@
 import mongoose from "mongoose";
-import fs from "fs";
-import path from "path";
-import { promisify } from "util";
 
 const { Schema, model } = mongoose;
 

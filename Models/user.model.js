@@ -80,11 +80,21 @@ const userSchema = new Schema(
 		},
 	},
 	{
+		toJSON: { virtuals: true },
+		toObject: { virtuals: true },
 		timestamps: true,
 	}
 );
 
 userSchema.index({ name: "text" });
+
+userSchema.virtual("isFollowing", {
+	ref: "Relationship",
+	localField: "_id",
+	foreignField: "following",
+	justOne: true,
+	options: { match: { follower: null } },
+});
 
 userSchema.pre("save", async (next) => {
 	if (!this.isModified("password")) return next();

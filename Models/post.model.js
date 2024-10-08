@@ -38,6 +38,12 @@ const postSchema = new Schema(
 				ref: "User",
 			},
 		],
+		reportedBy: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: "User",
+			},
+		],
 		caption: {
 			type: String,
 			trim: true,
@@ -48,11 +54,11 @@ const postSchema = new Schema(
 		music: {
 			type: String,
 		},
-		hideLikes: {
+		isHideLikes: {
 			type: Boolean,
 			default: false,
 		},
-		disableComment: {
+		isDisableComment: {
 			type: Boolean,
 			default: false,
 		},
