@@ -105,6 +105,32 @@ export const updateUser = asyncHandler(async (req, res, next) => {
 	}
 });
 
+export const updateUserAvatar = asyncHandler(async (req, res, next) => {
+	try {
+
+		console.log(req.file)
+
+		// const updatedUser = await User.findByIdAndUpdate(
+		// 	req.user._id,
+		// 	{
+		// 		$set: {
+		// 			avatar
+		// 		},
+		// 	},
+		// 	{ new: true }
+		// ).select("-password -refreshToken -savedPosts -followers -following");
+
+		return ApiSuccess(res, "user avatar updated successfull", {}, 201);
+	} catch (error) {
+		return next(
+			new ApiError(
+				400,
+				"error occured while updating user avtar, please try again."
+			)
+		);
+	}
+});
+
 export const deleteUser = asyncHandler(async (req, res, next) => {
 	try {
 		const userId = req.params.id;

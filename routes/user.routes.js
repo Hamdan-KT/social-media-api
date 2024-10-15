@@ -12,8 +12,10 @@ import {
 	rejectFollowRequest,
 	unfollow,
 	updateUser,
+	updateUserAvatar,
 } from "../controllers/user.controller.js";
 import { updateUserValidator } from "../middlewares/params/user.validator.js";
+import uploadAvatar from "../middlewares/users/uploadAvatar.js";
 
 const router = express.Router();
 
@@ -27,6 +29,9 @@ router.get("/", requireAuth, getUsers);
 
 // Update the currently authenticated user (e.g., update profile information)
 router.put("/", requireAuth, updateUserValidator, updateUser);
+
+// Update the currently authenticated user's avatar
+router.put("/avatar", requireAuth, uploadAvatar, updateUserAvatar);
 
 // Delete a specific user by their ID (usually requires admin or user's own permission)
 router.delete("/:id", requireAuth, deleteUser);
@@ -52,6 +57,5 @@ router.patch("/:id/follow-accept", requireAuth, acceptFollowRequest);
 // Reject follow request from users by their ID (usually the authenticated user accept follow reject from the target user)
 router.patch("/:id/follow-reject", requireAuth, rejectFollowRequest);
 
-;
 
 export default router;
