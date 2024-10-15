@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -102,6 +103,6 @@ postSchema.pre("remove", async function (next) {
 	}
 });
 
-const Post = model("Post", postSchema);
+const Post = model(MODELS.POST, postSchema);
 
 export default Post;

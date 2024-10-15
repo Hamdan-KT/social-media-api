@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -56,6 +57,6 @@ const contextSchema = new Schema(
 	}
 );
 
-const Context = model("Context", contextSchema);
+const Context = model(MODELS.CONTEXT, contextSchema);
 
 export default Context;

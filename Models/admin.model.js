@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -36,6 +37,6 @@ adminSchema.pre("save", async function (next) {
 	}
 });
 
-const Admin = model("Admin", adminSchema);
+const Admin = model(MODELS.ADMIN, adminSchema);
 
 export default Admin;

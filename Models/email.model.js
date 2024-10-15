@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -27,6 +28,6 @@ const emailSchema = new Schema({
 	},
 });
 
-const Email = model("Email", emailSchema);
+const Email = model(MODELS.EMAIL, emailSchema);
 
 export default Email;

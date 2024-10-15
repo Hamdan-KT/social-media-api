@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { MODELS } from "../utils/constants.js";
 
-const { Schema, model } = mongoose;
+const { Schema, model, } = mongoose;
 
 const userSchema = new Schema(
 	{
@@ -22,6 +23,10 @@ const userSchema = new Schema(
 			required: true,
 			unique: true,
 			trim: true,
+		},
+		gender: {
+			type: String,
+			enum: ["male", "female", "others"],
 		},
 		password: {
 			type: String,
@@ -76,7 +81,7 @@ const userSchema = new Schema(
 		},
 		refreshToken: {
 			type: String,
-			unique: true,
+			default: null,
 		},
 	},
 	{
@@ -86,40 +91,40 @@ const userSchema = new Schema(
 	}
 );
 
-userSchema.index({ name: "text" });
+// userSchema.virtual("isFollowing", {
+// 	ref: "Relationship",
+// 	localField: "_id",
+// 	foreignField: "following",
+// 	justOne: true,
+// 	options: { match: { follower: null } },
+// });
 
-userSchema.virtual("isFollowing", {
-	ref: "Relationship",
-	localField: "_id",
-	foreignField: "following",
-	justOne: true,
-	options: { match: { follower: null } },
-});
-
-userSchema.pre("save", async (next) => {
-	if (!this.isModified("password")) return next();
-	this.password = await bcrypt.hash(this.password, 10);
+userSchema.pre("save", async function (next) {
+	if (this.isModified("password")) {
+		let password = await bcrypt.hash(this.password, 10);
+		this.password = password;
+	}
 	next();
 });
 
-userSchema.methods.isPasswordCorrect = async (password) => {
+userSchema.methods.isPasswordCorrect = async function (password) {
 	return await bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.generateAccessToken = async () => {
-	jwt.sign(
+userSchema.methods.generateAccessToken = async function () {
+	return jwt.sign(
 		{ _id: this._id, userName: this.userName, role: this.role },
 		process.env.JWT_SECRET,
 		{ expiresIn: process.env.JWT_EXPIRY }
 	);
 };
 
-userSchema.methods.generateRefreshToken = async () => {
-	jwt.sign({ _id: this._id }, process.env.JWT_REFRESH_SECRET, {
+userSchema.methods.generateRefreshToken = async function () {
+	return jwt.sign({ _id: this._id }, process.env.JWT_REFRESH_SECRET, {
 		expiresIn: process.env.JWT_REFRESH_EXPIRY,
 	});
 };
 
-const User = model("User", userSchema);
+const User = model(MODELS.USER, userSchema);
 
 export default User;

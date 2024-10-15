@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
@@ -9,13 +10,6 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
 dayjs.extend(relativeTime);
 
-import mongoose from "mongoose";
-import Post from "../models/Post";
-import PostMedia from "../models/PostMedia";
-import ApiError from "../utils/ApiError";
-import ApiSuccess from "../utils/ApiSuccess";
-import asyncHandler from "../middleware/asyncHandler";
-import dayjs from "dayjs";
 
 export const createPost = asyncHandler(async (req, res, next) => {
 	const {

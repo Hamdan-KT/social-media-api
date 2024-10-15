@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -63,6 +64,6 @@ const suspiciousLoginSchema = new Schema(
 	}
 );
 
-const SuspiciousLogin = model("SuspiciousLogin", suspiciousLoginSchema);
+const SuspiciousLogin = model(MODELS.SUSPICIOUS_LOGIN, suspiciousLoginSchema);
 
 export default SuspiciousLogin;

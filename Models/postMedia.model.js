@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -40,6 +41,6 @@ const postMediaSchema = new Schema(
 
 postMediaSchema.index({ content: "text" });
 
-const PostMedia = model("PostMedia", postMediaSchema);
+const PostMedia = model(MODELS.POST_MEDIA, postMediaSchema);
 
 export default PostMedia;

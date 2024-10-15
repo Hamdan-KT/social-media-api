@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -35,6 +36,6 @@ const storyMediaSchema = new Schema(
 
 storyMediaSchema.index({ content: "text" });
 
-const StoryMedia = model("StoryMedia", storyMediaSchema);
+const StoryMedia = model(MODELS.STORY_MEDIA, storyMediaSchema);
 
 export default StoryMedia;

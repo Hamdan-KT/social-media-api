@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -23,6 +24,6 @@ const reportSchema = new Schema({
 	},
 });
 
-const Report = model("Report", reportSchema);
+const Report = model(MODELS.REPORT, reportSchema);
 
 export default Report;

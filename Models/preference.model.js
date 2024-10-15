@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -18,6 +19,6 @@ const preferenceSchema = new Schema(
 	{ timestamps: true }
 );
 
-const Preference = model("Preference", preferenceSchema);
+const Preference = model(MODELS.PREFERENCE, preferenceSchema);
 
 export default Preference;

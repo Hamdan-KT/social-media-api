@@ -4,5 +4,5 @@ export const ApiSuccess = (
 	data = {},
 	status = 200
 ) => {
-	return res.status(statusCode).json({ status, message, data });
+	return res.status(status).json({ status, message, data });
 };

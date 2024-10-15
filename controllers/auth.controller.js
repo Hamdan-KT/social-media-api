@@ -1,83 +1,98 @@
-import User from "../Models/user.model";
+import User from "../Models/user.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
 import jwt from "jsonwebtoken";
 
 export const register = asyncHandler(async (req, res, next) => {
-	const { userName, name, email, password } = req.body;
+	try {
+		const { userName, name, email, password } = req.body;
 
-	const userExist = await User.findOne({ userName });
+		const userExist = await User.findOne({ userName });
 
-	if (userExist) {
-		return next(new ApiError(409, "username is already taken."));
-	}
+		if (userExist) {
+			return next(new ApiError(409, "username is already taken."));
+		}
 
-	const emailDomain = email.split("@")[1];
-	const role = emailDomain === "mod.instogram.com" ? "moderator" : "general";
+		const emailDomain = email.split("@")[1];
+		const role = emailDomain === "mod.instogram.com" ? "moderator" : "general";
 
-	const user = await User.create({
-		userName,
-		name,
-		email,
-		role,
-		password,
-	});
+		const user = await User.create({
+			userName,
+			name,
+			email,
+			role,
+			password,
+		});
 
-	const createdUser = User.findById(user?._id).select(
-		"-password -refreshToken -savedPosts -followers -following"
-	);
+		const createdUser = await User.findById(user?._id)
+			.select("-password -refreshToken -savedPosts -followers -following")
+			.lean();
 
-	if (!createdUser) {
+		if (!createdUser) {
+			return next(
+				new ApiError(500, "something wrong while registering the user.")
+			);
+		}
+
+		ApiSuccess(res, "user registeration successfull.", createdUser);
+	} catch (error) {
 		return next(
-			new ApiError(500, "something wrong while registering the user.")
+			new ApiError(400, "error occured while registering, please try again.")
 		);
 	}
-
-	ApiSuccess(res, "user registeration successfull.", createdUser);
 });
 
 export const login = asyncHandler(async (req, res, next) => {
-	const { userName, password } = req.body;
+	try {
+		const { userName, password } = req.body;
 
-	const user = await User.findOne({ userName });
+		const user = await User.findOne({ userName });
 
-	if (!user) {
-		return next(new ApiError(404, "invalid credantials."));
+		if (!user) {
+			return next(new ApiError(404, "invalid credantials."));
+		}
+
+		const isPasswordCorrect = await user.isPasswordCorrect(password);
+
+		if (!isPasswordCorrect) {
+			return next(new ApiError(404, "invalid credantials."));
+		}
+
+		//if enabled auth context will add that feature
+
+		const options = {
+			httpOnly: true,
+			secure: true,
+		};
+
+		const accessToken = await user.generateAccessToken();
+		const refreshToken = await user.generateRefreshToken();
+
+		user.refreshToken = refreshToken;
+		await user.save();
+
+		const loggedInUser = await User.findById(user._id)
+			.select("-password -refreshToken -savedPosts -followers -following")
+			.lean();
+
+		//setting current logged user session
+		req.user = loggedInUser;
+
+		return res
+			.status(200)
+			.cookie("accessToken", accessToken, options)
+			.cookie("refreshToken", refreshToken, options)
+			.json({
+				status: 200,
+				message: "user login successfull.",
+				data: { user: loggedInUser, accessToken, refreshToken },
+			});
+	} catch (error) {
+		return next(
+			new ApiError(400, "error occured while login, please try again.")
+		);
 	}
-
-	const isPasswordCorrect = await user.isPasswordCorrect(password);
-
-	if (!isPasswordCorrect) {
-		return next(new ApiError(404, "invalid credantials."));
-	}
-
-	//if enabled auth context will add that feature
-
-	const options = {
-		httpOnly: true,
-		secure: true,
-	};
-
-	const accessToken = await user.generateAccessToken();
-	const refreshToken = await user.generateRefreshToken();
-
-	user.refreshToken = refreshToken;
-	await user.save();
-
-	const loggedInUser = User.findById(user._id).select(
-		"-password -refreshToken -savedPosts -followers -following"
-	);
-
-	return res
-		.status(200)
-		.cookie("accessToken", accessToken, options)
-		.cookie("refreshToken", refreshToken, options)
-		.json({
-			status: 200,
-			message: "user login successfull.",
-			data: { user: loggedInUser, accessToken, refreshToken },
-		});
 });
 
 export const logout = asyncHandler(async (req, res, next) => {
@@ -129,7 +144,7 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 			}
 
 			if (incomingRefreshToken !== user?.refreshToken) {
-				return next(new ApiError(401, "refresh token expired or used."));
+				return next(new ApiError(401, "refresh token invalid or used."));
 			}
 
 			const options = {
