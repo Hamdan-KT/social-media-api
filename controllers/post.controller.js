@@ -10,58 +10,68 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
 dayjs.extend(relativeTime);
 
-
 export const createPost = asyncHandler(async (req, res, next) => {
-	const {
-		aspectRatio,
-		caption,
-		location,
-		isHideLikes,
-		isDisableComment,
-		postData,
-	} = req.body;
-
-	const postFiles = req.files;
-
 	const session = await mongoose.startSession();
 	session.startTransaction();
 
 	try {
+		console.log(req.body);
+		const {
+			aspectRatio,
+			caption,
+			location,
+			isHideLikes,
+			isDisableComment,
+			postData,
+		} = req.body;
+
+		const postFiles = req.files;
+		console.log(postFiles);
+
 		// Create the post
 		const post = await Post.create(
-			{
-				aspectRatio,
-				caption,
-				location,
-				isHideLikes,
-				isDisableComment,
-			},
+			[
+				{
+					aspectRatio,
+					caption,
+					location,
+					isHideLikes,
+					isDisableComment,
+					user: req?.user?._id,
+				},
+			],
 			{ session }
 		);
 
-		const formattedPostFilesData = postData?.map((post) => {
+		const postDataParsed = JSON.parse(postData);
+		console.log(postDataParsed);
+		const formattedPostFilesData = postFiles?.map((file) => {
 			let fileType;
 
 			// Check file type
-			if (postFiles[post?.uID]?.startsWith("image/")) {
+			if (file?.mimetype.startsWith("image/")) {
 				fileType = "image";
-			} else if (postFiles[post?.uID]?.startsWith("video/")) {
+			} else if (file?.mimetype.startsWith("video/")) {
 				fileType = "video";
 			}
 
 			// Get file URL
 			const fileUrl = `${req.protocol}://${req.get("host")}/assets/userPosts/${
-				postFiles[post?.uID]?.filename
+				file?.filename
 			}`;
 
 			return {
-				post: post?._id, // Post ID from transaction result
+				post: post[0]?._id, // Post ID from transaction result
 				fileUrl,
 				fileType,
-				tags: post.tags || [],
-				altText: post.altText || "",
+				tags: postData[file?.fieldname]?.tags || [],
+				altText: postData[file?.fieldname]?.altText || "",
 			};
 		});
+
+		console.log(formattedPostFilesData);
+
+		throw new Error("hhhhh")
 
 		// Insert media into PostMedia collection
 		await PostMedia.insertMany(formattedPostFilesData, { session });
@@ -70,10 +80,10 @@ export const createPost = asyncHandler(async (req, res, next) => {
 		await session.commitTransaction();
 		session.endSession();
 
-		post.createdAt = dayjs(post.createdAt).fromNow();
-		return ApiSuccess(res, "Post created successfully.", post);
-		
+		post[0].createdAt = dayjs(post.createdAt).fromNow();
+		return ApiSuccess(res, "Post created successfully.", post[0]);
 	} catch (error) {
+		console.log(error);
 		// Rollback transaction
 		await session.abortTransaction();
 		session.endSession();

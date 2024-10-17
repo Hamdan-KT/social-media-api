@@ -2,14 +2,23 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { ApiError } from "../../utils/ApiError.js";
+import { fileURLToPath } from "url";
 
-function uploadPosts() {
-	const uploadDir = path.join("../../assets/userPosts");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function uploadPosts(req, res, next) {
+	const uploadDir = path.resolve(__dirname, "../../assets/userPosts");
 
 	const storage = multer.diskStorage({
 		destination: function (req, file, cb) {
 			if (!fs.existsSync(uploadDir)) {
-				fs.mkdir(uploadDir, { recursive: true });
+				return fs.mkdir(uploadDir, { recursive: true }, (err) => {
+					if (err) {
+						return cb(new ApiError(500, "Error creating upload directory."));
+					}
+					cb(null, uploadDir);
+				});
 			}
 			cb(null, uploadDir);
 		},
@@ -32,21 +41,23 @@ function uploadPosts() {
 			) {
 				cb(null, true);
 			} else {
-				cb(null, false);
+				cb(new ApiError(400, "Only image or video files are allowed!"), false);
 			}
 		},
-    });
-    
-    upload.any()(req, res, (err) => {
-        if (err) {
-            return next(new ApiError(500, "error occured while uploading posts."))
-        }
+	});
 
-        //checking files are exist
-        if (!req.files || req.files.length === 0) {
-            return next(400, "post files are not found to upload.")
-        }
-    })
+	upload.any()(req, res, (err) => {
+		if (err) {
+			return next(new ApiError(500, "error occured while uploading posts."));
+		}
+
+		//checking files are exist
+		// if (!req.file || !req.files || req.files.length === 0) {
+		// 	return next(400, "post files are not found to upload.");
+		// }
+
+		next();
+	});
 }
 
 export default uploadPosts;

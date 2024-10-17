@@ -8,19 +8,11 @@ const { Schema, model } = mongoose;
 
 const postSchema = new Schema(
 	{
-		files: [
-			{
-				type: Schema.Types.ObjectId,
-				ref: "PostMedia",
-				required: true,
-				trim: true,
-			},
-		],
 		aspectRatio: {
-			type: Number,
+			type: String,
 			required: true,
-			default: 4 / 5,
-			enum: [1 / 1, 4 / 5, 16 / 9],
+			default: "4/5",
+			enum: ["1/1", "4/5", "16/9"],
 		},
 		user: {
 			type: Schema.Types.ObjectId,

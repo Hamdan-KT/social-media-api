@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function uploadAvatar(req, res, next) {
-	const uploadDir = path.join(__dirname, "assets/userPosts");
+	const uploadDir = path.resolve(__dirname, "../../assets/userAvatars");
 
 	const storage = multer.diskStorage({
 		destination: function (req, file, cb) {
@@ -44,7 +44,11 @@ function uploadAvatar(req, res, next) {
 	});
 
 	upload.single("avatar")(req, res, (err) => {
-		console.log(err)
+		console.log(err);
+		if (err?.code === "LIMIT_UNEXPECTED_FILE") {
+			return next(new ApiError(500, "only one photo can upload."));
+		}
+		
 		if (err) {
 			return next(new ApiError(500, "error occured while uploading posts."));
 		}

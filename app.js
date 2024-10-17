@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import commentRoutes from "./routes/comment.routes.js";
 import passport from "passport";
 import cookieParser from "cookie-parser";
 import { Database } from "./config/database.js";
@@ -46,6 +47,7 @@ app.use("/auth", authRoutes);
 app.use("/user", userRoutes);
 app.use("/post", postRoutes);
 app.use("/admin", adminRoutes);
+app.use("/comment", commentRoutes);
 
 // error-handling middleware
 app.use((err, req, res, next) => {

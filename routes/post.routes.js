@@ -1,4 +1,5 @@
 import express from "express";
+import passport from "passport";
 import {
 	createPost,
 	deletePost,
@@ -16,8 +17,10 @@ import uploadPosts from "../middlewares/post/uploadPost.js";
 
 const router = express.Router();
 
+const requireAuth = passport.authenticate("jwt", { session: false }, null);
+
 // Create a new post (uploading content like images or videos, then saving the post)
-router.post("/", uploadPosts, createPost);
+router.post("/", requireAuth, uploadPosts, createPost);
 
 // Get the details of a specific post by its ID
 router.get("/:id", getPost);

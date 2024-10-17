@@ -7,6 +7,7 @@ const postMediaSchema = new Schema(
 	{
 		post: {
 			type: Schema.Types.ObjectId,
+			required: true,
 			ref: "Post",
 		},
 		fileUrl: {

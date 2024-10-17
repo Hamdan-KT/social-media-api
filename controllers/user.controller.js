@@ -107,20 +107,22 @@ export const updateUser = asyncHandler(async (req, res, next) => {
 
 export const updateUserAvatar = asyncHandler(async (req, res, next) => {
 	try {
+		console.log(req.body)
+		const avatar = `${req.protocol}://${req.get("host")}/assets/userAvatars/${
+			req?.file?.filename
+		}`;
 
-		console.log(req.file)
+		const updatedUser = await User.findByIdAndUpdate(
+			req.user._id,
+			{
+				$set: {
+					avatar,
+				},
+			},
+			{ new: true }
+		).select("-password -refreshToken -savedPosts -followers -following");
 
-		// const updatedUser = await User.findByIdAndUpdate(
-		// 	req.user._id,
-		// 	{
-		// 		$set: {
-		// 			avatar
-		// 		},
-		// 	},
-		// 	{ new: true }
-		// ).select("-password -refreshToken -savedPosts -followers -following");
-
-		return ApiSuccess(res, "user avatar updated successfull", {}, 201);
+		return ApiSuccess(res, "user avatar updated successfull", updatedUser, 201);
 	} catch (error) {
 		return next(
 			new ApiError(
