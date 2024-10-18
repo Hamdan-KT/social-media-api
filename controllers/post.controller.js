@@ -8,6 +8,7 @@ import PostMedia from "../Models/postMedia.model.js";
 import Relationship from "../Models/relationship.model.js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
+import { RELATION_STATUS_TYPES } from "../utils/constants.js";
 dayjs.extend(relativeTime);
 
 export const createPost = asyncHandler(async (req, res, next) => {
@@ -15,7 +16,6 @@ export const createPost = asyncHandler(async (req, res, next) => {
 	session.startTransaction();
 
 	try {
-		console.log(req.body);
 		const {
 			aspectRatio,
 			caption,
@@ -25,8 +25,8 @@ export const createPost = asyncHandler(async (req, res, next) => {
 			postData,
 		} = req.body;
 
+		// get post files
 		const postFiles = req.files;
-		console.log(postFiles);
 
 		// Create the post
 		const post = await Post.create(
@@ -43,8 +43,10 @@ export const createPost = asyncHandler(async (req, res, next) => {
 			{ session }
 		);
 
+		//parse json data
 		const postDataParsed = JSON.parse(postData);
-		console.log(postDataParsed);
+
+		//format to db structrue
 		const formattedPostFilesData = postFiles?.map((file) => {
 			let fileType;
 
@@ -61,17 +63,13 @@ export const createPost = asyncHandler(async (req, res, next) => {
 			}`;
 
 			return {
-				post: post[0]?._id, // Post ID from transaction result
+				post: post[0]?._id,
 				fileUrl,
 				fileType,
-				tags: postData[file?.fieldname]?.tags || [],
-				altText: postData[file?.fieldname]?.altText || "",
+				tags: postDataParsed[file?.fieldname]?.tags || [],
+				altText: postDataParsed[file?.fieldname]?.altText || "",
 			};
 		});
-
-		console.log(formattedPostFilesData);
-
-		throw new Error("hhhhh")
 
 		// Insert media into PostMedia collection
 		await PostMedia.insertMany(formattedPostFilesData, { session });
@@ -80,7 +78,7 @@ export const createPost = asyncHandler(async (req, res, next) => {
 		await session.commitTransaction();
 		session.endSession();
 
-		post[0].createdAt = dayjs(post.createdAt).fromNow();
+		post[0].createdAt = dayjs(post[0].createdAt).fromNow();
 		return ApiSuccess(res, "Post created successfully.", post[0]);
 	} catch (error) {
 		console.log(error);
@@ -92,8 +90,10 @@ export const createPost = asyncHandler(async (req, res, next) => {
 	}
 });
 
+export const updatePost = asyncHandler(async (req, res, next) => {});
+
 export const getPost = asyncHandler(async (req, res, next) => {
-	const post = Post.findById(req.params.id)
+	const post = await Post.findById(req.params.id)
 		.populate("user", "_id userName name avatar isPublic")
 		.lean();
 
@@ -106,9 +106,14 @@ export const getPost = asyncHandler(async (req, res, next) => {
 	const isFollowing = await Relationship.exists({
 		follower: req.user._id,
 		following: post.user?._id,
+		status: RELATION_STATUS_TYPES.FOLLOWING,
 	});
 
-	if (!post.user?.isPublic && post.user?._id !== req.user._id && !isFollowing) {
+	if (
+		!post.user?.isPublic &&
+		post.user?._id.toString() !== req.user._id.toString() &&
+		!isFollowing
+	) {
 		return next(
 			new ApiError(
 				400,
@@ -124,17 +129,17 @@ export const getPost = asyncHandler(async (req, res, next) => {
 });
 
 export const deletePost = asyncHandler(async (req, res, next) => {
-	const post = Post.findById(req.params.id)
+	const post = await Post.findById(req.params.id)
 		.populate("user", "_id userName name avatar isPublic")
 		.lean();
 
 	if (!post) {
 		return next(
-			new ApiError("post not found, may be it have been already deleted.")
+			new ApiError(404, "post not found, may be it have been already deleted.")
 		);
 	}
 
-	if (post.user?._id !== req.user._id) {
+	if (post.user?._id?.toString() !== req.user._id?.toString()) {
 		return next(
 			new ApiError(401, "you are not authorized to perform this operation.")
 		);

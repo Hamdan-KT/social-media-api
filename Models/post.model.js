@@ -16,25 +16,25 @@ const postSchema = new Schema(
 		},
 		user: {
 			type: Schema.Types.ObjectId,
-			ref: "User",
+			ref: MODELS.USER,
 			required: true,
 		},
 		comments: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "Comment",
+				ref: MODELS.COMMENT,
 			},
 		],
 		likes: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		reportedBy: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		caption: {
