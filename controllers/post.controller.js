@@ -380,7 +380,7 @@ export const savePost = asyncHandler(async (req, res, next) => {
 	const postId = req.params.id;
 
 	const post = await Post.findById(postId)
-		.populate("user", "userName avatar isPublic")
+		.populate("user", "_id userName avatar isPublic")
 		.select("-comments -likes -reportedBy")
 		.lean();
 
@@ -429,7 +429,7 @@ export const unsavePost = asyncHandler(async (req, res, next) => {
 	const postId = req.params.id;
 
 	const post = await Post.findById(postId)
-		.populate("user", "userName avatar isPublic")
+		.populate("user", "_id userName avatar isPublic")
 		.select("-comments -likes -reportedBy")
 		.lean();
 
@@ -712,13 +712,155 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 		createdAt: dayjs(post?.createdAt).fromNow(),
 	}));
 
-	return ApiSuccess(res, "saved posts fetch successfull.", formattedPosts);
+	return ApiSuccess(
+		res,
+		"user tagged posts fetch successfull.",
+		formattedPosts
+	);
 });
 
 export const getTaggedUsers = asyncHandler(async (req, res, next) => {
-	
+	const taggedUsers = await PostMedia.aggregate([
+		{ $match: { _id: new mongoose.Types.ObjectId(String(req.params.id)) } },
+		{ $unwind: "$tags" },
+		{
+			$lookup: {
+				from: MODELS.USER,
+				let: { taggedUser: "$tags.user" },
+				pipeline: [
+					{ $match: { $expr: { $eq: ["$_id", "$$taggedUser"] } } },
+					{
+						$project: { _id: 1, userName: 1, name: 1, isPublic: 1, avatar: 1 },
+					},
+				],
+				as: "user",
+			},
+		},
+		{ $unwind: "$user" },
+		{
+			$lookup: {
+				from: MODELS.RELATIONSHIP, // Lookup to check following status
+				let: { userId: "$user._id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $eq: ["$following", "$$userId"] },
+									{
+										$eq: [
+											"$follower",
+											new mongoose.Types.ObjectId(String(req.user._id)),
+										],
+									},
+									{ $eq: ["$status", RELATION_STATUS_TYPES.FOLLOWING] },
+								],
+							},
+						},
+					},
+				],
+				as: "relationship",
+			},
+		},
+		{
+			$addFields: {
+				isFollowing: {
+					$cond: {
+						if: { $gt: [{ $size: "$relationship" }, 0] },
+						then: true,
+						else: false,
+					},
+				},
+				followingStatus: { $arrayElemAt: ["$relationship.status", 0] },
+			},
+		},
+		{
+			$project: {
+				_id: "$user._id",
+				userName: "$user.userName",
+				name: "$user.name",
+				isPublic: "$user.isPublic",
+				avatar: "$user.avatar",
+				isFollowing: 1,
+				followingStatus: 1,
+			},
+		},
+	]);
+
+	return ApiSuccess(res, "tagged users fetch successfull.", taggedUsers);
 });
 
-export const likePost = asyncHandler(async (req, res, next) => {});
+export const likePost = asyncHandler(async (req, res, next) => {
+	const post = await Post.findById(req.params.id)
+		.populate("user", "_id userName avatar isPublic")
+		.select("-comments -likes -reportedBy")
+		.lean();
 
-export const unlikePost = asyncHandler(async (req, res, next) => {});
+	if (!post) {
+		return next(
+			new ApiError(
+				404,
+				"post not found, may be it have been already deleted by owner."
+			)
+		);
+	}
+
+	const isFollowing = await Relationship.exists({
+		follower: req.user?._id,
+		following: post?.user?._id,
+		status: RELATION_STATUS_TYPES.FOLLOWING,
+	});
+
+	if (
+		!post?.user?.isPublic &&
+		post?.user?._id.toString() !== req.user._id.toString() &&
+		!isFollowing
+	) {
+		return next(
+			new ApiError(
+				400,
+				"this post owner's account is private! you are not able to like this post until you follow this account."
+			)
+		);
+	}
+
+	const updatedPost = await Post.findByIdAndUpdate(
+		req.params?.id,
+		{
+			$addToSet: {
+				likes: req.user?._id,
+			},
+		},
+		{ new: true }
+	).select("-files -comments -reportedBy");
+
+	return ApiSuccess(res, "post liked successfull.", updatedPost);
+});
+
+export const unlikePost = asyncHandler(async (req, res, next) => {
+	const post = await Post.findById(req.params.id)
+		.populate("user", "_id userName avatar isPublic")
+		.select("-comments -likes -reportedBy")
+		.lean();
+
+	if (!post) {
+		return next(
+			new ApiError(
+				404,
+				"post not found, may be it have been already deleted by owner."
+			)
+		);
+	}
+
+	const updatedPost = await Post.findByIdAndUpdate(
+		req.params?.id,
+		{
+			$pull: {
+				likes: req.user?._id,
+			},
+		},
+		{ new: true }
+	).select("-files -comments -reportedBy");
+
+	return ApiSuccess(res, "post unliked successfull.", updatedPost);
+});

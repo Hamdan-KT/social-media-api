@@ -47,7 +47,7 @@ router.get("/saved", requireAuth, getSavedPosts);
 // Get all posts where a specific user is tagged
 router.get("/:id/tagged", requireAuth, getTaggedPosts);
 
-// Get all users tagged in a specific post by post ID
+// Get all users tagged in a specific post by post media ID
 router.get("/:id/tags", requireAuth, getTaggedUsers);
 
 // Like a specific post by its ID (authenticated user likes the post)
