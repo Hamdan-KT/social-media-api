@@ -2,8 +2,12 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { MODELS } from "../utils/constants.js";
+import { promisify } from "util";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const { Schema, model, } = mongoose;
+const { Schema, model } = mongoose;
 
 const userSchema = new Schema(
 	{
@@ -38,13 +42,13 @@ const userSchema = new Schema(
 		followers: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		following: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		location: {
@@ -67,7 +71,7 @@ const userSchema = new Schema(
 		savedPosts: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "Post",
+				ref: MODELS.POST,
 				default: [],
 			},
 		],
@@ -91,13 +95,8 @@ const userSchema = new Schema(
 	}
 );
 
-// userSchema.virtual("isFollowing", {
-// 	ref: "Relationship",
-// 	localField: "_id",
-// 	foreignField: "following",
-// 	justOne: true,
-// 	options: { match: { follower: null } },
-// });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 userSchema.pre("save", async function (next) {
 	if (this.isModified("password")) {
@@ -105,6 +104,24 @@ userSchema.pre("save", async function (next) {
 		this.password = password;
 	}
 	next();
+});
+
+userSchema.pre("deleteOne", async function (next) {
+	try {
+		// console.log(this);
+		console.log(this.avatar);
+		if (this.avatar) {
+			console.log(this.avatar);
+			const filename = path.basename(this.avatar);
+			const deleteFilePromise = promisify(fs.unlink)(
+				path.resolve(__dirname, "../../assets/userAvatars", filename)
+			);
+			await deleteFilePromise;
+		}
+		next();
+	} catch (error) {
+		next(error);
+	}
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {

@@ -8,7 +8,7 @@ const postMediaSchema = new Schema(
 		post: {
 			type: Schema.Types.ObjectId,
 			required: true,
-			ref: "Post",
+			ref: MODELS.POST,
 		},
 		fileUrl: {
 			type: String,
@@ -24,7 +24,7 @@ const postMediaSchema = new Schema(
 			{
 				user: {
 					type: Schema.Types.ObjectId,
-					ref: "User",
+					ref: MODELS.USER,
 				},
 				x: { type: Number },
 				y: { type: Number },

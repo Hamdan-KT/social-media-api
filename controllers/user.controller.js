@@ -107,7 +107,6 @@ export const updateUser = asyncHandler(async (req, res, next) => {
 
 export const updateUserAvatar = asyncHandler(async (req, res, next) => {
 	try {
-		console.log(req.body)
 		const avatar = `${req.protocol}://${req.get("host")}/assets/userAvatars/${
 			req?.file?.filename
 		}`;

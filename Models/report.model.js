@@ -6,12 +6,12 @@ const { Schema, model } = mongoose;
 const reportSchema = new Schema({
 	post: {
 		type: Schema.Types.ObjectId,
-		ref: "Post",
+		ref: MODELS.POST,
 		required: true,
 	},
 	reportedBy: {
 		type: Schema.Types.ObjectId,
-		ref: "User",
+		ref: MODELS.USER,
 		required: true,
 	},
 	reportReason: {

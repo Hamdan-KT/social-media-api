@@ -25,7 +25,7 @@ const storyMediaSchema = new Schema(
 		mentions: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 	},

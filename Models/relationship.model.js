@@ -7,11 +7,11 @@ const relationshipSchema = new Schema(
 	{
 		follower: {
 			type: Schema.Types.ObjectId,
-			ref: "User",
+			ref: MODELS.USER,
 		},
 		following: {
 			type: Schema.Types.ObjectId,
-			ref: "User",
+			ref: MODELS.USER,
 		},
 		status: {
 			type: String,

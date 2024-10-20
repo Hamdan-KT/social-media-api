@@ -7,7 +7,7 @@ const commentSchema = new Schema(
 	{
 		parent_comment: {
 			type: Schema.Types.ObjectId,
-			ref: "Comment",
+			ref: MODELS.COMMENT,
 		},
 		content: {
 			type: String,
@@ -16,12 +16,12 @@ const commentSchema = new Schema(
 		},
 		user: {
 			type: Schema.Types.ObjectId,
-			ref: "User",
+			ref: MODELS.USER,
 		},
 		post: {
 			type: Schema.Types.ObjectId,
 			required: true,
-			ref: "Post",
+			ref: MODELS.POST,
 		},
 		type: {
 			type: String,
@@ -31,11 +31,11 @@ const commentSchema = new Schema(
 		likes: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 				default: [],
 			},
 		],
-		mentions: [{ type: Schema.Types.ObjectId, ref: "User" }],
+		mentions: [{ type: Schema.Types.ObjectId, ref: MODELS.USER }],
 	},
 	{
 		timestamps: true,

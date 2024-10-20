@@ -27,13 +27,19 @@ router.post("/", requireAuth, uploadPosts, createPost);
 router.put("/", requireAuth, updatePost);
 
 // Get the details of a specific post by its ID
-router.get("/:id", requireAuth, getPost);
+router.get("/:id/post", requireAuth, getPost);
 
 // Delete a specific post by its ID
-router.delete("/:id", requireAuth, deletePost);
+router.delete("/:id/post", requireAuth, deletePost);
 
 // Get all posts from a specific user by their ID
 router.get("/:id/posts", requireAuth, getUserPosts);
+
+// Save a specific post for the authenticated user
+router.patch("/:id/save", requireAuth, savePost);
+
+// Unsave a specific post for the authenticated user
+router.patch("/:id/unsave", requireAuth, unsavePost);
 
 // Get all saved posts for the authenticated user
 router.get("/saved", requireAuth, getSavedPosts);
@@ -43,12 +49,6 @@ router.get("/:id/tagged", requireAuth, getTaggedPosts);
 
 // Get all users tagged in a specific post by post ID
 router.get("/:id/tags", requireAuth, getTaggedUsers);
-
-// Save a specific post for the authenticated user
-router.patch("/:id/save", requireAuth, savePost);
-
-// Unsave a specific post for the authenticated user
-router.patch("/:id/unsave", requireAuth, unsavePost);
 
 // Like a specific post by its ID (authenticated user likes the post)
 router.patch("/:id/like", requireAuth, likePost);

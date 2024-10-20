@@ -21,19 +21,19 @@ const storySchema = new Schema(
 		},
 		user: {
 			type: Schema.Types.ObjectId,
-			ref: "User",
+			ref: MODELS.USER,
 			required: true,
 		},
 		views: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		likes: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "User",
+				ref: MODELS.USER,
 			},
 		],
 		music: {

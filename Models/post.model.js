@@ -8,6 +8,13 @@ const { Schema, model } = mongoose;
 
 const postSchema = new Schema(
 	{
+		files: [
+			{
+				type: Schema.Types.ObjectId,
+				required: true,
+				ref: MODELS.POST_MEDIA,
+			},
+		],
 		aspectRatio: {
 			type: String,
 			required: true,
@@ -63,23 +70,21 @@ const postSchema = new Schema(
 
 postSchema.index({ content: "text" });
 
-postSchema.pre("remove", async function (next) {
+postSchema.pre("deleteOne", async function (next) {
 	try {
-		if (this.fileUrl) {
-			const filename = path.basename(this.fileUrl);
-			const deleteFilePromise = promisify(fs.unlink)(
-				path.join(__dirname, "../assets/userFiles", filename)
-			);
-			await deleteFilePromise;
-		}
+		// console.log(this.avatar);
+		// if (this.avatar) {
+		// 	console.log(this.avatar);
+		// 	const filename = path.basename(this.avatar);
+		// 	const deleteFilePromise = promisify(fs.unlink)(
+		// 		path.resolve(__dirname, "../../assets/userPosts", filename)
+		// 	);
+		// 	await deleteFilePromise;
+		// }
 
-		await this.model("Comment").deleteMany({ _id: this.comments });
+		await this.model(MODELS.COMMENT).deleteMany({ _id: this.comments });
 
-		await this.model("Report").deleteOne({
-			post: this._id,
-		});
-
-		await this.model("User").updateMany(
+		await this.model(MODELS.USER).updateMany(
 			{
 				savedPosts: this._id,
 			},
@@ -89,9 +94,10 @@ postSchema.pre("remove", async function (next) {
 				},
 			}
 		);
+
 		next();
-	} catch (err) {
-		next(err);
+	} catch (error) {
+		next(error);
 	}
 });
 
