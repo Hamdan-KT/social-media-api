@@ -9,7 +9,10 @@ import {
 	unlikeComment,
 	updateComment,
 } from "../controllers/comment.controller.js";
-import { commentCreateValidator } from "../middlewares/params/comment.validator.js";
+import {
+	commentCreateValidator,
+	commentUpdateValidator,
+} from "../middlewares/params/comment.validator.js";
 
 const router = express.Router();
 
@@ -18,14 +21,14 @@ const requireAuth = passport.authenticate("jwt", { session: false }, null);
 // Add a new comment to a specific post by its ID
 router.post("/:id/comment", requireAuth, commentCreateValidator, createComment);
 
+// Edit an existing comment on a specific post by its ID
+router.put("/:id/comment", requireAuth, commentUpdateValidator, updateComment);
+
 // Get all comments for a specific post by its ID
 router.get("/:id/comments", requireAuth, getComments);
 
 // Get all reply comments for a specific comment by its ID
 router.get("/:id/reply-comments", requireAuth, getReplyComments);
-
-// Edit an existing comment on a specific post by its ID
-router.put("/:id/comment", requireAuth, updateComment);
 
 // Delete a comment from a specific post by its ID
 router.delete("/:id/comment", requireAuth, deleteComment);

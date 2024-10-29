@@ -17,3 +17,18 @@ export const commentCreateValidator = (req, res, next) => {
 
 	return next();
 };
+
+export const commentUpdateValidator = (req, res, next) => {
+	const body = joi.object({
+		content: joi.string().min(1).max(2300).required(),
+		mentions: joi.array().optional(),
+	});
+
+	const { error, value } = body.validate(req.body);
+
+	if (error) {
+		return next(new ApiError(400, error.details[0].message.replace(/\"/g, "")));
+	}
+
+	return next();
+};
