@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { MODELS } from "../utils/constants.js";
+import { COMMENT_TYPES, MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -8,6 +8,12 @@ const commentSchema = new Schema(
 		parent_comment: {
 			type: Schema.Types.ObjectId,
 			ref: MODELS.COMMENT,
+			default: null,
+		},
+		post: {
+			type: Schema.Types.ObjectId,
+			required: true,
+			ref: MODELS.POST,
 		},
 		content: {
 			type: String,
@@ -18,21 +24,29 @@ const commentSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: MODELS.USER,
 		},
-		post: {
-			type: Schema.Types.ObjectId,
-			required: true,
-			ref: MODELS.POST,
-		},
 		type: {
 			type: String,
-			enum: ["general", "reply"],
-			default: "generel",
+			enum: [COMMENT_TYPES.GENERAL, COMMENT_TYPES.REPLY],
+			default: COMMENT_TYPES.GENERAL,
+			required: true,
+			validate: {
+				validator: function (value) {
+					if (this.parent_comment !== null && value !== "reply") {
+						return false;
+					}
+					if (this.parent_comment === null && value !== "general") {
+						return false;
+					}
+					return true;
+				},
+				message: (props) =>
+					`Invalid type: ${props.value}. Type should be "reply" if parent_comment is not null, otherwise "general".`,
+			},
 		},
 		likes: [
 			{
 				type: Schema.Types.ObjectId,
 				ref: MODELS.USER,
-				default: [],
 			},
 		],
 		mentions: [{ type: Schema.Types.ObjectId, ref: MODELS.USER }],

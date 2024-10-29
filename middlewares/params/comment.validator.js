@@ -1,12 +1,12 @@
 import joi from "joi";
 import { ApiError } from "../../utils/ApiError.js";
 
-export const registerValidator = (req, res, next) => {
+export const commentCreateValidator = (req, res, next) => {
 	const body = joi.object({
-		userName: joi.string().required(),
-		name: joi.string().required(),
-		email: joi.string().email(),
-		password: joi.string().required(),
+		parent_comment: joi.string().optional(),
+		content: joi.string().min(1).max(2300).required(),
+		type: joi.string().required(),
+		mentions: joi.array().optional(),
 	});
 
 	const { error, value } = body.validate(req.body);

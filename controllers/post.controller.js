@@ -84,14 +84,14 @@ export const createPost = asyncHandler(async (req, res, next) => {
 		session.endSession();
 
 		post[0].createdAt = dayjs(post[0].createdAt).fromNow();
-		return ApiSuccess(res, "Post created successfully.", post[0]);
+		return ApiSuccess(res, "post created successfully.", post[0]);
 	} catch (error) {
 		console.log(error);
 		// Rollback transaction
 		await session.abortTransaction();
 		session.endSession();
 
-		return next(new ApiError(500, "Error occurred while uploading post."));
+		return next(new ApiError(500, "error occurred while uploading post."));
 	}
 });
 
@@ -832,7 +832,7 @@ export const likePost = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{ new: true }
-	).select("-files -comments -reportedBy");
+	).select("-files -likes -comments -reportedBy");
 
 	return ApiSuccess(res, "post liked successfull.", updatedPost);
 });
@@ -860,7 +860,7 @@ export const unlikePost = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{ new: true }
-	).select("-files -comments -reportedBy");
+	).select("-files -likes -comments -reportedBy");
 
 	return ApiSuccess(res, "post unliked successfull.", updatedPost);
 });

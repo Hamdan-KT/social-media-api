@@ -15,13 +15,14 @@ import {
 	updatePost,
 } from "../controllers/post.controller.js";
 import uploadPosts from "../middlewares/post/uploadPost.js";
+import { postCreateValidator } from "../middlewares/params/post.validator.js";
 
 const router = express.Router();
 
 const requireAuth = passport.authenticate("jwt", { session: false }, null);
 
 // Create a new post (uploading content like images or videos, then saving the post)
-router.post("/", requireAuth, uploadPosts, createPost);
+router.post("/", requireAuth, postCreateValidator, uploadPosts, createPost);
 
 // update existing post
 router.put("/", requireAuth, updatePost);

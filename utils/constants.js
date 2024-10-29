@@ -19,3 +19,8 @@ export const MODELS = {
 	SUSPICIOUS_LOGIN: "suspiciouslogins",
 	USER: "users",
 };
+
+export const COMMENT_TYPES = {
+	GENERAL: "general",
+	REPLY: "reply",
+};
