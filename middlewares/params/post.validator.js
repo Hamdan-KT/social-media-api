@@ -6,8 +6,8 @@ export const postCreateValidator = (req, res, next) => {
 		aspectRatio: joi.string().optional(),
 		caption: joi.string().min(1).max(2300).optional(),
 		location: joi.string().optional,
-		isHideLikes: joi.string().default(false).required(),
-		isDisableComment: joi.string().default(false).required(),
+		isHideLikes: joi.string().default(false).optional(),
+		isDisableComment: joi.string().default(false).optional(),
 		postData: joi.string().optional(),
 	});
 

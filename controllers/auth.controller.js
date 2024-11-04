@@ -117,7 +117,7 @@ export const logout = asyncHandler(async (req, res, next) => {
 		.clearCookie("refreshToken", options)
 		.json({
 			statu: 200,
-			message: "user logged out.",
+			message: "user logged out successfull.",
 			data: {},
 		});
 });
@@ -127,24 +127,24 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 		req.cookies.refreshToken || req.body.refreshToken;
 
 	if (!incomingRefreshToken) {
-		return next(new ApiError(401, "unauthorized request."));
+		return next(new ApiError(403, "unauthorized request."));
 	}
 
 	jwt.verify(
 		incomingRefreshToken,
 		process.env.JWT_REFRESH_SECRET,
 		async (err, decodedToken) => {
-			if (err) return next(new ApiError(401, "invalid refresh token."));
+			if (err) return next(new ApiError(403, "invalid refresh token."));
 			// find user
 
 			const user = await User.findById(decodedToken?._id);
 
 			if (!user) {
-				return next(new ApiError(401, "invalid refresh token"));
+				return next(new ApiError(403, "invalid refresh token"));
 			}
 
 			if (incomingRefreshToken !== user?.refreshToken) {
-				return next(new ApiError(401, "refresh token invalid or used."));
+				return next(new ApiError(403, "refresh token invalid or used."));
 			}
 
 			const options = {
@@ -164,5 +164,11 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 });
 
 export const currentUser = asyncHandler(async (req, res) => {
-	return ApiSuccess(res, "current user.", req?.user);
+	const user = await User.findOne({ _id: req.user._id })
+		.select("-password -savedPosts -refreshToken -followers -following")
+		.lean();
+	return ApiSuccess(res, "current user.", {
+		user,
+		accessToken: req.cookies.accessToken,
+	});
 });

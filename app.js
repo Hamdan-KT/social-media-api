@@ -15,9 +15,8 @@ import passport from "passport";
 import cookieParser from "cookie-parser";
 import { Database } from "./config/database.js";
 import { ApiError } from "./utils/ApiError.js";
+import { app, server } from "./socket/index.js";
 
-
-const app = express();
 const PORT = process.env.PORT || 4000;
 
 // db connection
@@ -59,7 +58,7 @@ app.use((err, req, res, next) => {
 			errors: err?.errors,
 		});
 	} else {
-		res.status(500).json({ statusCode: 500, message: "Internal Server Error" });
+		res.status(500).json({ statusCode: 500, message: "Something went wrong." });
 	}
 });
 
@@ -75,7 +74,7 @@ process.on("SIGINT", async () => {
 });
 
 // start the server
-app.listen(PORT, () =>
+server.listen(PORT, () =>
 	console.log(
 		chalk.bgYellowBright.bold(` Server up and running on port ${PORT}! `)
 	)

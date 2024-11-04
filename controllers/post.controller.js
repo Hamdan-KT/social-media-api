@@ -15,6 +15,8 @@ export const createPost = asyncHandler(async (req, res, next) => {
 	const session = await mongoose.startSession();
 	session.startTransaction();
 
+	console.log(req.body);
+
 	try {
 		const {
 			aspectRatio,
