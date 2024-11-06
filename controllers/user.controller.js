@@ -23,6 +23,14 @@ export const getUser = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$lookup: {
+				from: MODELS.POST,
+				localField: "_id",
+				foreignField: "user",
+				as: "posts",
+			},
+		},
+		{
+			$lookup: {
 				from: MODELS.RELATIONSHIP,
 				let: { userId: "$_id" },
 				pipeline: [
@@ -57,6 +65,7 @@ export const getUser = asyncHandler(async (req, res, next) => {
 					},
 				},
 				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
+				postsCount: { $size: "$posts" },
 			},
 		},
 		{
@@ -127,6 +136,7 @@ export const getUser = asyncHandler(async (req, res, next) => {
 				followers: 0,
 				following: 0,
 				myrelationship: 0,
+				posts: 0,
 			},
 		},
 	]);
