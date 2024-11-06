@@ -3,6 +3,7 @@ import passport from "passport";
 import {
 	createPost,
 	deletePost,
+	getAllPosts,
 	getPost,
 	getSavedPosts,
 	getTaggedPosts,
@@ -29,6 +30,9 @@ router.put("/", requireAuth, updatePost);
 
 // Get the details of a specific post by its ID
 router.get("/:id/post", requireAuth, getPost);
+
+// Get the details of all post based latest posts with date sorting
+router.get("/", requireAuth, getAllPosts);
 
 // Delete a specific post by its ID
 router.delete("/:id/post", requireAuth, deletePost);

@@ -10,64 +10,209 @@ import mongoose from "mongoose";
 export const getUser = asyncHandler(async (req, res, next) => {
 	const userId = req.params.id;
 
-	//check if user exist
-	const user = await User.findById(userId).select(
-		"-password -refreshToken -savedPosts"
-	);
+	const result = await User.aggregate([
+		{
+			$match: { _id: new mongoose.Types.ObjectId(String(userId)) },
+		},
+		{
+			$project: {
+				password: 0,
+				refreshToken: 0,
+				savedPosts: 0,
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.RELATIONSHIP,
+				let: { userId: "$_id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: [
+											"$follower",
+											new mongoose.Types.ObjectId(String(req.user._id)),
+										],
+									},
+									{ $eq: ["$following", "$$userId"] },
+									{ $eq: ["$status", RELATION_STATUS_TYPES.FOLLOWING] },
+								],
+							},
+						},
+					},
+				],
+				as: "myrelationship",
+			},
+		},
+		{
+			$addFields: {
+				isFollowing: { $gt: [{ $size: "$myrelationship" }, 0] },
+				followingSince: {
+					$cond: {
+						if: { $gt: [{ $size: "$myrelationship" }, 0] },
+						then: { $arrayElemAt: ["$myrelationship.createdAt", 0] },
+						else: null,
+					},
+				},
+				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "_id",
+				foreignField: "following",
+				as: "currentUserFollowing",
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.RELATIONSHIP,
+				let: { followingIds: "$currentUserFollowing._id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $in: ["$follower", "$$followingIds"] },
+									{
+										$eq: [
+											"$following",
+											new mongoose.Types.ObjectId(String(userId)),
+										],
+									},
+									{ $eq: ["$status", RELATION_STATUS_TYPES.FOLLOWING] },
+								],
+							},
+						},
+					},
+					// { $limit: 3 },
+				],
+				as: "mutualFollowingUsers",
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "mutualFollowingUsers.follower",
+				foreignField: "_id",
+				as: "mutualFollowingUserDetails",
+			},
+		},
+		{
+			$addFields: {
+				mutualUsers: {
+					$map: {
+						input: "$mutualFollowingUserDetails",
+						as: "user",
+						in: {
+							_id: "$$user._id",
+							userName: "$$user.userName",
+							avatar: "$$user.avatar",
+						},
+					},
+				},
+				followedByCount: { $size: "$mutualFollowingUsers" },
+				followingCount: { $size: "$following" },
+				followersCount: { $size: "$followers" },
+			},
+		},
+		{
+			$project: {
+				currentUserFollowing: 0,
+				mutualFollowingUserDetails: 0,
+				mutualFollowingUsers: 0,
+				followers: 0,
+				following: 0,
+				myrelationship: 0,
+			},
+		},
+	]);
 
-	if (!user) {
-		return next(new ApiError(404, "user not found."));
+	if (!result.length) {
+		return next(new ApiError(404, "User not found."));
 	}
 
-	//check already following or relation exist
-	const isFollowing = await Relationship.findOne({
-		follower: req.user._id,
-		following: userId,
-		status: RELATION_STATUS_TYPES.FOLLOWING,
-	});
-
-	//get current user following list
-	const currentUserFollowing = await User.findById(req.user._id).select(
-		"-password -refreshToken -savedPosts"
-	);
-
-	// get list of mutual followers
-	const mutualFollowingUsers = await Relationship.find({
-		follower: { $in: currentUserFollowing.following },
-		following: userId,
-		status: RELATION_STATUS_TYPES.FOLLOWING,
-	}).populate("follower", "_id userName name avatar");
+	const user = result[0];
 
 	const responseData = {
-		_id: user._id,
-		userName: user.userName,
-		name: user.name,
-		email: user.email,
-		avatar: user.avatar,
-		followersCount: user.followers.length,
-		followingCount: user.following.length,
-		role: user.role,
-		bio: user.bio,
-		isPublic: user.isPublic,
-		isFollowing: !!isFollowing,
-		followingSince: isFollowing
-			? dayjs(isFollowing.createdAt).format("MMMM D, YYYY")
+		...user,
+		joinedOn: user.createdAt
+			? dayjs(user.createdAt).format("MMMM D, YYYY")
 			: null,
-		joinedOn: dayjs(user.createdAt).format("MMMM D, YYYY"),
-		followedBy: mutualFollowingUsers.length
-			? mutualFollowingUsers.slice(0, 4)
-			: [],
-		followedByCount: mutualFollowingUsers.length,
+		followingSince: user.followingSince
+			? dayjs(user.followingSince).format("MMMM D, YYYY")
+			: null,
 	};
 
-	ApiSuccess(res, "user fetch successfull", responseData);
+	ApiSuccess(res, "User fetch successful", responseData);
 });
 
 export const getUsers = asyncHandler(async (req, res, next) => {
-	const users = await User.find()
-		.select("-password -refreshToken -savedPosts -followers -following")
-		.lean();
-	return ApiSuccess(res, "users fetch successfull", users);
+	const relationShips = await User.aggregate([
+		{
+			$match: {
+				_id: { $ne: new mongoose.Types.ObjectId(String(req.user._id)) },
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.RELATIONSHIP,
+				let: { userId: "$_id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $eq: ["$following", "$$userId"] },
+									{
+										$eq: [
+											"$follower",
+											new mongoose.Types.ObjectId(String(req.user._id)),
+										],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: "myrelationship",
+			},
+		},
+		{
+			$addFields: {
+				isFollowing: {
+					$cond: {
+						if: { $gt: [{ $size: "$myrelationship" }, 0] }, // Check if a relationship exists
+						then: {
+							$eq: [
+								{ $arrayElemAt: ["$myrelationship.status", 0] },
+								RELATION_STATUS_TYPES.FOLLOWING,
+							],
+						}, // Only mark as "following" if the status is FOLLOWING
+						else: false,
+					},
+				},
+				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
+			},
+		},
+		{ $sort: { createdAt: -1 } },
+		{
+			$project: {
+				_id: 1,
+				userName: 1,
+				name: 1,
+				avatar: 1,
+				isPublic: 1,
+				isFollowing: 1,
+				followingStatus: 1,
+			},
+		},
+	]);
+
+	return ApiSuccess(res, "following users fetch successfull.", relationShips);
 });
 
 export const updateUser = asyncHandler(async (req, res, next) => {

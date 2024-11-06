@@ -25,7 +25,6 @@ const postMediaSchema = new Schema(
 				user: {
 					type: Schema.Types.ObjectId,
 					ref: MODELS.USER,
-					unique: true,
 				},
 				x: { type: Number },
 				y: { type: Number },

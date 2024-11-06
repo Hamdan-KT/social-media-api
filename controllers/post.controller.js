@@ -228,6 +228,118 @@ export const getPost = asyncHandler(async (req, res, next) => {
 	return ApiSuccess(res, "post info fetch successfull.", post);
 });
 
+export const getAllPosts = asyncHandler(async (req, res, next) => {
+	let posts = await Post.aggregate([
+		{
+			$lookup: {
+				from: MODELS.POST_MEDIA,
+				localField: "files",
+				foreignField: "_id",
+				as: "files",
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "user",
+				foreignField: "_id",
+				as: "user",
+			},
+		},
+		{ $unwind: "$user" },
+		{
+			$lookup: {
+				from: MODELS.RELATIONSHIP,
+				let: { userId: "$user._id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ["$following", "$$userId"],
+									},
+									{
+										$eq: [
+											"$follower",
+											new mongoose.Types.ObjectId(String(req.user._id)),
+										],
+									},
+									{ $eq: ["$status", RELATION_STATUS_TYPES.FOLLOWING] },
+								],
+							},
+						},
+					},
+				],
+				as: "relationship",
+			},
+		},
+		{
+			$addFields: {
+				isFollowing: {
+					$cond: {
+						if: { $gt: [{ $size: "$relationship" }, 0] },
+						then: {
+							$eq: [
+								{ $arrayElemAt: ["$relationship.status", 0] },
+								RELATION_STATUS_TYPES.FOLLOWING,
+							],
+						},
+						else: false,
+					},
+				},
+				followingStatus: { $arrayElemAt: ["$relationship.status", 0] },
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				files: 1,
+				aspectRatio: 1,
+				caption: 1,
+				location: 1,
+				isHideLikes: 1,
+				isDisableComment: 1,
+				createdAt: 1,
+				isFollowing: 1,
+				followingStatus: 1,
+				user: {
+					_id: 1,
+					userName: 1,
+					isPublic: 1,
+					avatar: 1,
+				},
+				files: {
+					_id: 1,
+					fileUrl: 1,
+					fileType: 1,
+					altText: 1,
+				},
+				likes: {
+					$size: "$likes",
+				},
+				comments: {
+					$size: "$comments",
+				},
+			},
+		},
+		{
+			$sort: { createdAt: -1 }, // Sort by createdAt in descending order
+		},
+	]);
+
+	posts = posts.map((post) => {
+		post.createdAt = dayjs(post?.createdAt).fromNow();
+		return post;
+	});
+
+	return ApiSuccess(
+		res,
+		"Posts fetched and sorted by date successfully.",
+		posts
+	);
+});
+
 export const deletePost = asyncHandler(async (req, res, next) => {
 	const post = await Post.findById(req.params.id)
 		.populate("user", "_id userName name avatar isPublic")
