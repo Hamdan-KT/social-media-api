@@ -229,12 +229,19 @@ export const getPost = asyncHandler(async (req, res, next) => {
 });
 
 export const getAllPosts = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
 	let posts = await Post.aggregate([
 		{
 			$lookup: {
 				from: MODELS.POST_MEDIA,
-				localField: "files",
-				foreignField: "_id",
+				let: { fileIds: "$files" },
+				pipeline: [
+					{ $match: { $expr: { $in: ["$_id", "$$fileIds"] } } },
+					{ $sort: { createdAt: -1 } },
+				],
 				as: "files",
 			},
 		},
@@ -326,6 +333,8 @@ export const getAllPosts = asyncHandler(async (req, res, next) => {
 		{
 			$sort: { createdAt: -1 }, // Sort by createdAt in descending order
 		},
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 	]);
 
 	posts = posts.map((post) => {
@@ -366,6 +375,10 @@ export const deletePost = asyncHandler(async (req, res, next) => {
 });
 
 export const getUserPosts = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
 	const posts = await Post.aggregate([
 		{
 			$match: { user: new mongoose.Types.ObjectId(String(req.params.id)) },
@@ -373,8 +386,11 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 		{
 			$lookup: {
 				from: MODELS.POST_MEDIA,
-				localField: "files",
-				foreignField: "_id",
+				let: { fileIds: "$files" },
+				pipeline: [
+					{ $match: { $expr: { $in: ["$_id", "$$fileIds"] } } },
+					{ $sort: { createdAt: -1 } },
+				],
 				as: "files",
 			},
 		},
@@ -396,9 +412,7 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 						$match: {
 							$expr: {
 								$and: [
-									{
-										$eq: ["$following", "$$userId"],
-									},
+									{ $eq: ["$following", "$$userId"] },
 									{
 										$eq: [
 											"$follower",
@@ -424,7 +438,7 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 								{ $arrayElemAt: ["$relationship.status", 0] },
 								RELATION_STATUS_TYPES.FOLLOWING,
 							],
-						}, // Only mark as "following" if the status is FOLLOWING
+						},
 						else: false,
 					},
 				},
@@ -455,14 +469,13 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 					fileType: 1,
 					altText: 1,
 				},
-				likes: {
-					$size: "$likes",
-				},
-				comments: {
-					$size: "$comments",
-				},
+				likes: { $size: "$likes" },
+				comments: { $size: "$comments" },
 			},
 		},
+		{ $sort: { createdAt: -1 } }, // Sort posts by createdAt in descending order
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 	]);
 
 	if (!posts.length) {
@@ -570,6 +583,10 @@ export const unsavePost = asyncHandler(async (req, res, next) => {
 });
 
 export const getSavedPosts = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
 	const posts = await User.aggregate([
 		{
 			$match: {
@@ -684,6 +701,9 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 				comments: { $size: "$post.comments" },
 			},
 		},
+		{ $sort: { createdAt: -1 } }, // Sort posts by createdAt in descending order
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 	]);
 
 	if (!posts.length) {
@@ -699,6 +719,10 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 });
 
 export const getTaggedPosts = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+	
 	const posts = await PostMedia.aggregate([
 		{
 			$match: {
@@ -815,6 +839,9 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 				comments: 1,
 			},
 		},
+		{ $sort: { createdAt: -1 } }, // Sort posts by createdAt in descending order
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 	]);
 
 	if (!posts.length) {
