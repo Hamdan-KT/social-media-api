@@ -479,7 +479,7 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 	]);
 
 	if (!posts.length) {
-		return next(new ApiError(404, "user not posted anything yet."));
+		return ApiSuccess(res, "user not posted anything yet.", posts);
 	}
 
 	if (
@@ -707,7 +707,7 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 	]);
 
 	if (!posts.length) {
-		return next(new ApiError(404, "user not saved anything yet."));
+		return ApiSuccess(res, "user not saved anything yet.", posts);
 	}
 
 	const formattedPosts = posts?.map((post) => ({
@@ -722,7 +722,7 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 	const page = parseInt(req.query.page, 10) || 1;
 	const limit = parseInt(req.query.limit, 10) || 10;
 	const skip = (page - 1) * limit;
-	
+
 	const posts = await PostMedia.aggregate([
 		{
 			$match: {
@@ -845,7 +845,7 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 	]);
 
 	if (!posts.length) {
-		return next(new ApiError(404, "user has not any tagged posts yet."));
+		return ApiSuccess(res, "user has not any tagged posts yet.", posts);
 	}
 
 	const formattedPosts = posts?.map((post) => ({

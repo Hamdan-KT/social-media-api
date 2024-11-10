@@ -161,6 +161,10 @@ export const getUser = asyncHandler(async (req, res, next) => {
 });
 
 export const getUsers = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
 	const relationShips = await User.aggregate([
 		{
 			$match: {
@@ -208,7 +212,7 @@ export const getUsers = asyncHandler(async (req, res, next) => {
 				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
 			},
 		},
-		{ $sort: { createdAt: -1 } },
+		{ $sort: { createdAt: 1 } },
 		{
 			$project: {
 				_id: 1,
@@ -220,9 +224,11 @@ export const getUsers = asyncHandler(async (req, res, next) => {
 				followingStatus: 1,
 			},
 		},
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 	]);
 
-	return ApiSuccess(res, "following users fetch successfull.", relationShips);
+	return ApiSuccess(res, "users fetch successfull.", relationShips);
 });
 
 export const updateUser = asyncHandler(async (req, res, next) => {
