@@ -166,6 +166,7 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 });
 
 export const currentUser = asyncHandler(async (req, res) => {
+	console.log({ accessToken: req.cookies.accessToken });
 	const user = await User.findOne({ _id: req.user._id })
 		.select("-password -savedPosts -refreshToken -followers -following")
 		.lean();
