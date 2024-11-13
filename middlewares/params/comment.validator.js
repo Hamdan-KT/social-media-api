@@ -3,7 +3,7 @@ import { ApiError } from "../../utils/ApiError.js";
 
 export const commentCreateValidator = (req, res, next) => {
 	const body = joi.object({
-		parent_comment: joi.string().optional(),
+		parent_comment: joi.string().optional().allow(null),
 		content: joi.string().min(1).max(2300).required(),
 		type: joi.string().required(),
 		mentions: joi.array().optional(),

@@ -6,7 +6,7 @@ import Comment from "../Models/comment.model.js";
 import mongoose from "mongoose";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
-import { COMMENT_TYPES } from "../utils/constants.js";
+import { COMMENT_TYPES, MODELS } from "../utils/constants.js";
 dayjs.extend(relativeTime);
 
 export const createComment = asyncHandler(async (req, res, next) => {
@@ -121,38 +121,127 @@ export const updateComment = asyncHandler(async (req, res, next) => {
 });
 
 export const getComments = asyncHandler(async (req, res, next) => {
-	const post = await Post.findById(req.params.id);
+	const { id } = req.params;
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
 
-	if (!post) {
+	// Check if post exists
+	const postExists = await Post.exists({ _id: id });
+	if (!postExists) {
 		return next(
 			new ApiError(
 				404,
-				"post not found, may be it have been already deleted by owner."
+				"post not found, may be it has already been deleted by the owner."
 			)
 		);
 	}
 
-	//fetching comments
-	const comments = await Comment.find({
-		post: req.params.id,
-		type: COMMENT_TYPES.GENERAL,
-	})
-		.populate("user", "_id userName avatar")
-		.populate("mentions", "_id userName")
-		.lean();
+	// Aggregation pipeline for comments
+	const comments = await Comment.aggregate([
+		{
+			$match: {
+				post: new mongoose.Types.ObjectId(String(id)),
+				type: COMMENT_TYPES.GENERAL,
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "user",
+				foreignField: "_id",
+				as: "user",
+			},
+		},
+		{ $unwind: "$user" },
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "mentions",
+				foreignField: "_id",
+				as: "mentions",
+			},
+		},
+		{
+			$addFields: {
+				likes: { $size: "$likes" },
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.COMMENT,
+				let: { commentId: "$_id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $eq: ["$parent_comment", "$$commentId"] },
+									{ $eq: ["$type", COMMENT_TYPES.REPLY] },
+								],
+							},
+						},
+					},
+					{ $limit: 2 },
+				],
+				as: "replies",
+			},
+		},
+		{
+			$addFields: {
+				isReplies: {
+					$cond: {
+						if: { $gt: [{ $size: "$replies" }, 0] },
+						then: true,
+						else: false,
+					},
+				},
+				repliesCount: { $size: "$replies" },
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				post: 1,
+				content: 1,
+				user: {
+					_id: "$user._id",
+					userName: "$user.userName",
+					avatar: "$user.avatar",
+				},
+				mentions: {
+					_id: "$user._id",
+					userName: "$user.userName",
+					avatar: "$user.avatar",
+				},
+				type: 1,
+				likes: 1,
+				createdAt: 1,
+				isReplies: 1,
+				repliesCount: 1,
+			},
+		},
+		{ $sort: { createdAt: -1 } },
+		// Pagination
+		{ $skip: skip },
+		{ $limit: limit },
+	]);
 
-	// format comment with like count and created time
-	const formattedComments = comments.map((com) => ({
-		...com,
-		likes: com.likes.length,
-		createdAt: dayjs(com.createdAt).fromNow(),
+	const formattedComments = comments?.map((comment) => ({
+		...comment,
+		createdAt: dayjs(comment?.createdAt).fromNow(true),
 	}));
 
-	return ApiSuccess(res, "comments fetch successfull.", formattedComments);
+	return ApiSuccess(res, "comments fetch successful.", formattedComments);
 });
 
 export const getReplyComments = asyncHandler(async (req, res, next) => {
-	const parentComment = await Comment.findById(req.params.id);
+	const { id } = req.params;
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
+	const parentComment = await Comment.findById(id);
 
 	if (!parentComment) {
 		return next(
@@ -163,24 +252,69 @@ export const getReplyComments = asyncHandler(async (req, res, next) => {
 		);
 	}
 
-	//fetching comments
-	const replyComments = await Comment.find({
-		parent_comment: req.params.id,
-		post: parentComment.post,
-		type: COMMENT_TYPES.REPLY,
-	})
-		.populate("user", "_id userName avatar")
-		.populate("mentions", "_id userName")
-		.lean();
+	// Aggregation pipeline for comments
+	const replyComments = await Comment.aggregate([
+		{
+			$match: {
+				parent_comment: req.params.id,
+				post: new mongoose.Types.ObjectId(String(parentComment.post)),
+				type: COMMENT_TYPES.GENERAL,
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "user",
+				foreignField: "_id",
+				as: "user",
+			},
+		},
+		{ $unwind: "$user" },
+		{
+			$lookup: {
+				from: MODELS.USER,
+				localField: "mentions",
+				foreignField: "_id",
+				as: "mentions",
+			},
+		},
+		{
+			$addFields: {
+				likes: { $size: "$likes" },
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				post: 1,
+				content: 1,
+				user: {
+					_id: "$user._id",
+					userName: "$user.userName",
+					avatar: "$user.avatar",
+				},
+				mentions: {
+					_id: "$user._id",
+					userName: "$user.userName",
+					avatar: "$user.avatar",
+				},
+				type: 1,
+				likes: 1,
+				createdAt: 1,
+			},
+		},
+		{ $sort: { createdAt: -1 } },
+		// Pagination
+		{ $skip: skip },
+		{ $limit: limit },
+	]);
 
-	// format comment with like count and created time
-	const formattedReplyComments = replyComments.map((com) => ({
-		...com,
-		likes: com.likes.length,
-		createdAt: dayjs(com.createdAt).fromNow(),
+	const formattedComments = replyComments?.map((comment) => ({
+		...comment,
+		createdAt: dayjs(comment?.createdAt).fromNow(true),
 	}));
 
-	return ApiSuccess(res, "comments fetch successfull.", formattedReplyComments);
+	return ApiSuccess(res, "comments fetch successful.", formattedComments);
 });
 
 export const deleteComment = asyncHandler(async (req, res, next) => {

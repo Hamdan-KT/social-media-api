@@ -150,6 +150,18 @@ export const getPost = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 				isFollowing: {
 					$cond: {
 						if: { $gt: [{ $size: "$relationship" }, 0] },
@@ -177,6 +189,7 @@ export const getPost = asyncHandler(async (req, res, next) => {
 				createdAt: 1,
 				isFollowing: 1,
 				followingStatus: 1,
+				isLiked: 1,
 				user: {
 					_id: 1,
 					userName: 1,
@@ -223,7 +236,7 @@ export const getPost = asyncHandler(async (req, res, next) => {
 		);
 	}
 
-	post.createdAt = dayjs(post?.createdAt).fromNow();
+	post.createdAt = dayjs(post?.createdAt).fromNow(true);
 
 	return ApiSuccess(res, "post info fetch successfull.", post);
 });
@@ -283,6 +296,18 @@ export const getAllPosts = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 				isFollowing: {
 					$cond: {
 						if: { $gt: [{ $size: "$relationship" }, 0] },
@@ -322,6 +347,7 @@ export const getAllPosts = asyncHandler(async (req, res, next) => {
 					fileType: 1,
 					altText: 1,
 				},
+				isLiked: 1,
 				likes: {
 					$size: "$likes",
 				},
@@ -338,7 +364,7 @@ export const getAllPosts = asyncHandler(async (req, res, next) => {
 	]);
 
 	posts = posts.map((post) => {
-		post.createdAt = dayjs(post?.createdAt).fromNow();
+		post.createdAt = dayjs(post?.createdAt).fromNow(true);
 		return post;
 	});
 
@@ -430,6 +456,18 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 				isFollowing: {
 					$cond: {
 						if: { $gt: [{ $size: "$relationship" }, 0] },
@@ -463,6 +501,7 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 					isPublic: 1,
 					avatar: 1,
 				},
+				isLiked: 1,
 				files: {
 					_id: 1,
 					fileUrl: 1,
@@ -497,7 +536,7 @@ export const getUserPosts = asyncHandler(async (req, res, next) => {
 
 	const formattedPosts = posts?.map((post) => ({
 		...post,
-		createdAt: dayjs(post?.createdAt).fromNow(),
+		createdAt: dayjs(post?.createdAt).fromNow(true),
 	}));
 
 	return ApiSuccess(res, "posts fetch successfull.", formattedPosts);
@@ -664,6 +703,18 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$post.likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 				isFollowing: {
 					$cond: {
 						if: { $gt: [{ $size: "$relationship" }, 0] },
@@ -695,6 +746,7 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 					isPublic: "$postUser.isPublic",
 					avatar: "$postUser.avatar",
 				},
+				isLiked: 1,
 				isFollowing: 1,
 				followingStatus: 1,
 				likes: { $size: "$post.likes" },
@@ -712,7 +764,7 @@ export const getSavedPosts = asyncHandler(async (req, res, next) => {
 
 	const formattedPosts = posts?.map((post) => ({
 		...post,
-		createdAt: dayjs(post?.createdAt).fromNow(),
+		createdAt: dayjs(post?.createdAt).fromNow(true),
 	}));
 
 	return ApiSuccess(res, "saved posts fetch successfull.", formattedPosts);
@@ -774,6 +826,18 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$post.likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 				isFollowing: {
 					$cond: {
 						if: { $gt: [{ $size: "$relationship" }, 0] },
@@ -810,6 +874,7 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 						avatar: "$user.avatar",
 					},
 				},
+				isLiked: { $first: "$isLiked" },
 				isFollowing: { $first: "$isFollowing" },
 				followingStatus: { $first: "$followingStatus" },
 				likes: { $first: { $size: "$post.likes" } },
@@ -828,6 +893,7 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 				createdAt: 1,
 				user: 1,
 				isFollowing: 1,
+				isLiked: 1,
 				followingStatus: {
 					$cond: {
 						if: { $ne: ["$followingStatus", null] },
@@ -850,7 +916,7 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 
 	const formattedPosts = posts?.map((post) => ({
 		...post,
-		createdAt: dayjs(post?.createdAt).fromNow(),
+		createdAt: dayjs(post?.createdAt).fromNow(true),
 	}));
 
 	return ApiSuccess(

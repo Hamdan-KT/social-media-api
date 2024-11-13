@@ -38,14 +38,14 @@ export const getUser = asyncHandler(async (req, res, next) => {
 						$match: {
 							$expr: {
 								$and: [
+									{ $eq: ["$following", "$$userId"] },
 									{
 										$eq: [
 											"$follower",
 											new mongoose.Types.ObjectId(String(req.user._id)),
 										],
 									},
-									{ $eq: ["$following", "$$userId"] },
-									{ $eq: ["$status", RELATION_STATUS_TYPES.FOLLOWING] },
+									{ $ne: ["$status", RELATION_STATUS_TYPES.NOT_FOLLOWING] },
 								],
 							},
 						},
@@ -56,7 +56,19 @@ export const getUser = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$addFields: {
-				isFollowing: { $gt: [{ $size: "$myrelationship" }, 0] },
+				isFollowing: {
+					$cond: {
+						if: { $gt: [{ $size: "$myrelationship" }, 0] }, // Check if a relationship exists
+						then: {
+							$eq: [
+								{ $arrayElemAt: ["$myrelationship.status", 0] },
+								RELATION_STATUS_TYPES.FOLLOWING,
+							],
+						}, // Only mark as "following" if the status is FOLLOWING
+						else: false,
+					},
+				},
+				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
 				followingSince: {
 					$cond: {
 						if: { $gt: [{ $size: "$myrelationship" }, 0] },
@@ -64,7 +76,6 @@ export const getUser = asyncHandler(async (req, res, next) => {
 						else: null,
 					},
 				},
-				followingStatus: { $arrayElemAt: ["$myrelationship.status", 0] },
 				postsCount: { $size: "$posts" },
 			},
 		},
