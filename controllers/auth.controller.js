@@ -130,6 +130,8 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 		return next(new ApiError(403, "unauthorized request."));
 	}
 
+	console.log({ incomingRefreshToken });
+
 	jwt.verify(
 		incomingRefreshToken,
 		process.env.JWT_REFRESH_SECRET,
