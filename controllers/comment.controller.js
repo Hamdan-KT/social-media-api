@@ -163,11 +163,6 @@ export const getComments = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
-			$addFields: {
-				likes: { $size: "$likes" },
-			},
-		},
-		{
 			$lookup: {
 				from: MODELS.COMMENT,
 				let: { commentId: "$_id" },
@@ -182,7 +177,6 @@ export const getComments = asyncHandler(async (req, res, next) => {
 							},
 						},
 					},
-					{ $limit: 2 },
 				],
 				as: "replies",
 			},
@@ -197,6 +191,19 @@ export const getComments = asyncHandler(async (req, res, next) => {
 					},
 				},
 				repliesCount: { $size: "$replies" },
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
+				likes: { $size: "$likes" },
 			},
 		},
 		{
@@ -219,6 +226,7 @@ export const getComments = asyncHandler(async (req, res, next) => {
 				createdAt: 1,
 				isReplies: 1,
 				repliesCount: 1,
+				isLiked: 1,
 			},
 		},
 		{ $sort: { createdAt: -1 } },
@@ -256,9 +264,9 @@ export const getReplyComments = asyncHandler(async (req, res, next) => {
 	const replyComments = await Comment.aggregate([
 		{
 			$match: {
-				parent_comment: req.params.id,
+				parent_comment: new mongoose.Types.ObjectId(String(id)),
 				post: new mongoose.Types.ObjectId(String(parentComment.post)),
-				type: COMMENT_TYPES.GENERAL,
+				type: COMMENT_TYPES.REPLY,
 			},
 		},
 		{
@@ -281,6 +289,18 @@ export const getReplyComments = asyncHandler(async (req, res, next) => {
 		{
 			$addFields: {
 				likes: { $size: "$likes" },
+				isLiked: {
+					$cond: {
+						if: {
+							$in: [
+								new mongoose.Types.ObjectId(String(req.user._id)),
+								"$likes",
+							],
+						},
+						then: true,
+						else: false,
+					},
+				},
 			},
 		},
 		{
@@ -301,9 +321,9 @@ export const getReplyComments = asyncHandler(async (req, res, next) => {
 				type: 1,
 				likes: 1,
 				createdAt: 1,
+				isLiked: 1,
 			},
 		},
-		{ $sort: { createdAt: -1 } },
 		// Pagination
 		{ $skip: skip },
 		{ $limit: limit },
