@@ -4,6 +4,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
 import jwt from "jsonwebtoken";
 
+const isProduction = process.env.NODE_ENV === "prod";
+
 export const register = asyncHandler(async (req, res, next) => {
 	try {
 		const { userName, name, email, password } = req.body;
@@ -63,7 +65,8 @@ export const login = asyncHandler(async (req, res, next) => {
 
 		const options = {
 			httpOnly: true,
-			secure: true,
+			secure: isProduction,
+			sameSite: isProduction ? "None" : "Lax",
 		};
 
 		const accessToken = await user.generateAccessToken();
@@ -108,7 +111,8 @@ export const logout = asyncHandler(async (req, res, next) => {
 
 	const options = {
 		httpOnly: true,
-		secure: true,
+		secure: isProduction,
+		sameSite: isProduction ? "None" : "Lax",
 	};
 
 	return res
@@ -151,7 +155,8 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 
 			const options = {
 				httpOnly: true,
-				secure: true,
+				secure: isProduction,
+				sameSite: isProduction ? "None" : "Lax",
 			};
 
 			const accessToken = await user.generateAccessToken();
