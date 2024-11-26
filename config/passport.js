@@ -14,7 +14,8 @@ var cookieExtractor = function (req) {
 };
 
 const opts = {
-	jwtFromRequest: cookieExtractor || ExtractJwt.fromAuthHeaderAsBearerToken(),
+	jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+	// jwtFromRequest: cookieExtractor || ExtractJwt.fromAuthHeaderAsBearerToken(),
 	secretOrKey: process.env.JWT_SECRET,
 };
 
