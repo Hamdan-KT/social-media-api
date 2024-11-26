@@ -20,19 +20,27 @@ const opts = {
 };
 
 passport.use(
-	new JwtStrategy(opts, async (jwt_payload, done) => {
-		try {
-			const user = await User.findOne({ _id: jwt_payload._id })
-				.select(
-					"-password -refreshToken -savedPosts -followers -following -updatedAt -__v"
-				)
-				.lean();
-			if (user) {
-				return done(null, user);
+	new JwtStrategy(
+		{
+			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+			// jwtFromRequest: cookieExtractor || ExtractJwt.fromAuthHeaderAsBearerToken(),
+			secretOrKey: process.env.JWT_SECRET,
+		},
+		async (jwt_payload, done) => {
+			console.log({ jwt_payload });
+			try {
+				const user = await User.findOne({ _id: jwt_payload._id })
+					.select(
+						"-password -refreshToken -savedPosts -followers -following -updatedAt -__v"
+					)
+					.lean();
+				if (user) {
+					return done(null, user);
+				}
+				return done(null, false);
+			} catch (err) {
+				return done(err, false);
 			}
-			return done(null, false);
-		} catch (err) {
-			return done(err, false);
 		}
-	})
+	)
 );
