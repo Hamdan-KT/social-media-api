@@ -930,6 +930,10 @@ export const getTaggedPosts = asyncHandler(async (req, res, next) => {
 });
 
 export const getTaggedUsers = asyncHandler(async (req, res, next) => {
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
+
 	const taggedUsers = await PostMedia.aggregate([
 		{ $match: { _id: new mongoose.Types.ObjectId(String(req.params.id)) } },
 		{ $unwind: "$tags" },
@@ -984,6 +988,9 @@ export const getTaggedUsers = asyncHandler(async (req, res, next) => {
 				followingStatus: { $arrayElemAt: ["$relationship.status", 0] },
 			},
 		},
+		// { $sort: { createdAt: -1 } }, // Sort posts by createdAt in descending order
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 		{
 			$project: {
 				_id: "$user._id",
