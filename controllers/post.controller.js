@@ -107,8 +107,11 @@ export const getPost = asyncHandler(async (req, res, next) => {
 		{
 			$lookup: {
 				from: MODELS.POST_MEDIA,
-				localField: "files",
-				foreignField: "_id",
+				let: { fileIds: "$files" },
+				pipeline: [
+					{ $match: { $expr: { $in: ["$_id", "$$fileIds"] } } },
+					{ $sort: { createdAt: -1 } },
+				],
 				as: "files",
 			},
 		},

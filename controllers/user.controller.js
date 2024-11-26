@@ -340,6 +340,9 @@ export const deleteUser = asyncHandler(async (req, res, next) => {
 
 export const getFollowingUsers = asyncHandler(async (req, res, next) => {
 	const user = await User.findById(req.params.id);
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
 
 	if (!user) {
 		return next(new ApiError(404, "user not found."));
@@ -416,6 +419,8 @@ export const getFollowingUsers = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{ $sort: { createdAt: -1 } },
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 		{
 			$project: {
 				_id: "$followingUserDetails._id",
@@ -434,6 +439,9 @@ export const getFollowingUsers = asyncHandler(async (req, res, next) => {
 
 export const getFollowerUsers = asyncHandler(async (req, res, next) => {
 	const user = await User.findById(req.params.id);
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
 
 	if (!user) {
 		return next(new ApiError(404, "user not found."));
@@ -510,6 +518,8 @@ export const getFollowerUsers = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{ $sort: { createdAt: -1 } },
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 		{
 			$project: {
 				_id: "$followerUserDetails._id",
@@ -528,6 +538,9 @@ export const getFollowerUsers = asyncHandler(async (req, res, next) => {
 
 export const getMuturalUsers = asyncHandler(async (req, res, next) => {
 	const user = await User.findById(req.params.id);
+	const page = parseInt(req.query.page, 10) || 1;
+	const limit = parseInt(req.query.limit, 10) || 10;
+	const skip = (page - 1) * limit;
 
 	if (!user) {
 		return next(new ApiError(404, "user not found."));
@@ -597,6 +610,9 @@ export const getMuturalUsers = asyncHandler(async (req, res, next) => {
 				},
 			},
 		},
+		{ $sort: { createdAt: -1 } },
+		{ $skip: skip }, // Skip documents for pagination
+		{ $limit: limit },
 		{
 			$project: {
 				_id: "$mutualUserDetails._id",
@@ -618,145 +634,170 @@ export const getMuturalUsers = asyncHandler(async (req, res, next) => {
 });
 
 export const follow = asyncHandler(async (req, res, next) => {
-	const followerId = req.user._id;
-	const followingId = req.params.id;
+	const session = await mongoose.startSession();
+	session.startTransaction();
 
-	// prevent users from following themselves
-	if (followerId.toString() === followingId.toString()) {
-		return next(new ApiError(400, "You cannot follow yourself."));
-	}
+	try {
+		const followerId = req.user._id;
+		const followingId = req.params.id;
 
-	// check if the user to be followed exists
-	const followingUser = await User.findById(followingId);
-	if (!followingUser) {
-		return next(new ApiError(404, "User not found."));
-	}
-
-	// check if a relationship already exists between the follower and following user
-	const relationshipExist = await Relationship.findOne({
-		follower: followerId,
-		following: followingId,
-	});
-
-	// if a relationship exists, handle the status accordingly
-	if (relationshipExist) {
-		if (relationshipExist.status === RELATION_STATUS_TYPES.FOLLOWING) {
-			return next(new ApiError(400, "You are already following this user."));
+		// prevent users from following themselves
+		if (followerId.toString() === followingId.toString()) {
+			return next(new ApiError(400, "You cannot follow yourself."));
 		}
-		if (relationshipExist.status === RELATION_STATUS_TYPES.REQUESTED) {
-			return next(
-				new ApiError(
-					400,
-					"You have already sent a follow request to this user."
-				)
-			);
+
+		// check if the user to be followed exists
+		const followingUser = await User.findById(followingId).session(session);
+		if (!followingUser) {
+			return next(new ApiError(404, "User not found."));
 		}
+
+		// check if a relationship already exists between the follower and following user
+		const relationshipExist = await Relationship.findOne({
+			follower: followerId,
+			following: followingId,
+		}).session(session);
+
+		// if a relationship exists, handle the status accordingly
+		if (relationshipExist) {
+			if (relationshipExist.status === RELATION_STATUS_TYPES.FOLLOWING) {
+				return next(new ApiError(400, "You are already following this user."));
+			}
+			if (relationshipExist.status === RELATION_STATUS_TYPES.REQUESTED) {
+				return next(
+					new ApiError(
+						400,
+						"You have already sent a follow request to this user."
+					)
+				);
+			}
+		}
+
+		// determine the relationship status (following or requested) based on the user's privacy settings
+		let status = RELATION_STATUS_TYPES.FOLLOWING;
+		if (!followingUser.isPublic) {
+			status = RELATION_STATUS_TYPES.REQUESTED;
+		}
+
+		// create the relationship in the Relationship collection
+		await Relationship.create(
+			[
+				{
+					follower: followerId,
+					following: followingId,
+					status,
+				},
+			],
+			{ session }
+		);
+
+		// if the user is public, update both users' followers and following arrays
+		if (followingUser.isPublic) {
+			await Promise.all([
+				User.findByIdAndUpdate(
+					followerId,
+					{ $addToSet: { following: followingId } },
+					{ new: true, session }
+				),
+				User.findByIdAndUpdate(
+					followingId,
+					{ $addToSet: { followers: followerId } },
+					{ new: true, session }
+				),
+			]);
+		}
+
+		// Commit the transaction
+		await session.commitTransaction();
+		session.endSession();
+
+		return ApiSuccess(
+			res,
+			status === RELATION_STATUS_TYPES.FOLLOWING
+				? "User followed successfully."
+				: "Follow request sent to the user successfully."
+		);
+	} catch (error) {
+		console.log(error);
+		// Rollback the transaction in case of an error
+		await session.abortTransaction();
+		session.endSession();
+		return next(new ApiError(400, "Error Occured while following."));
 	}
-
-	// determine the relationship status (following or requested) based on the user's privacy settings
-	let status = RELATION_STATUS_TYPES.FOLLOWING;
-
-	if (!followingUser.isPublic) {
-		// If the user has a private account, set the status to 'requested'
-		status = RELATION_STATUS_TYPES.REQUESTED;
-	}
-
-	// create the relationship in the Relationship collection
-	await Relationship.create({
-		follower: followerId,
-		following: followingId,
-		status,
-	});
-
-	// ff the user is public, update both users' followers and following arrays
-	if (followingUser.isPublic) {
-		await Promise.all([
-			User.findByIdAndUpdate(
-				followerId,
-				{ $addToSet: { following: followingId } },
-				{ new: true }
-			),
-			User.findByIdAndUpdate(
-				followingId,
-				{ $addToSet: { followers: followerId } },
-				{ new: true }
-			),
-		]);
-	}
-
-	return ApiSuccess(
-		res,
-		status === RELATION_STATUS_TYPES.FOLLOWING
-			? "user followed successfully."
-			: "follow request sent to the user successfully."
-	);
 });
 
 export const unfollow = asyncHandler(async (req, res, next) => {
-	const followerId = req.user._id;
-	const followingId = req.params.id;
+	const session = await mongoose.startSession();
+	session.startTransaction();
 
-	// check if the user to be followed exists
-	const followingUser = await User.findById(followingId);
-	if (!followingUser) {
-		return next(new ApiError(404, "User not found."));
+	try {
+		const followerId = req.user._id;
+		const followingId = req.params.id;
+
+		// check if the user to be unfollowed exists
+		const followingUser = await User.findById(followingId).session(session);
+		if (!followingUser) {
+			return next(new ApiError(404, "User not found."));
+		}
+
+		// prevent users from unfollowing themselves
+		if (followerId.toString() === followingId.toString()) {
+			return next(new ApiError(400, "You cannot unfollow yourself."));
+		}
+
+		// check if a relationship exists between the follower and the following user
+		const relationshipExist = await Relationship.findOne({
+			follower: followerId,
+			following: followingId,
+		}).session(session);
+
+		// if no relationship exists, return an error
+		if (!relationshipExist) {
+			return next(
+				new ApiError(
+					400,
+					"You are not following or have not requested to follow this user."
+				)
+			);
+		}
+
+		// handling if the relationship is in the 'requested' or 'following' state
+		if (relationshipExist.status === RELATION_STATUS_TYPES.FOLLOWING) {
+			// if the user is following, update the followers and following arrays and delete the relationship
+			await Promise.all([
+				User.findByIdAndUpdate(
+					followerId,
+					{ $pull: { following: followingId } },
+					{ new: true, session }
+				),
+				User.findByIdAndUpdate(
+					followingId,
+					{ $pull: { followers: followerId } },
+					{ new: true, session }
+				),
+			]);
+		} else if (relationshipExist.status === RELATION_STATUS_TYPES.REQUESTED) {
+			// if the relationship is in the 'requested' state, just remove the follow request
+			await Relationship.deleteOne({ _id: relationshipExist._id }, { session });
+			await session.commitTransaction();
+			session.endSession();
+			return ApiSuccess(res, "Follow request canceled successfully.");
+		}
+
+		// Remove the relationship from the Relationship collection
+		await Relationship.deleteOne({ _id: relationshipExist._id }, { session });
+
+		// Commit the transaction
+		await session.commitTransaction();
+		session.endSession();
+
+		return ApiSuccess(res, "User unfollowed successfully.");
+	} catch (error) {
+		// Rollback the transaction in case of an error
+		await session.abortTransaction();
+		session.endSession();
+		return next(new ApiError(400, "Error Occured while unfollowing."));
 	}
-
-	// prevent users from unfollowing themselves
-	if (followerId.toString() === followingId.toString()) {
-		return next(new ApiError(400, "You cannot unfollow yourself."));
-	}
-
-	// check if a relationship exists between the follower and the following user
-	const relationshipExist = await Relationship.findOne({
-		follower: followerId,
-		following: followingId,
-	});
-
-	// if no relationship exists, return an error
-	if (!relationshipExist) {
-		return next(
-			new ApiError(
-				400,
-				"You are not following or have not requested to follow this user."
-			)
-		);
-	}
-
-	// handling if the relationship is in the 'requested' or 'following' state
-	if (relationshipExist.status === RELATION_STATUS_TYPES.FOLLOWING) {
-		// if the user is following, update the followers and following arrays and delete the relationship
-		await Promise.all([
-			User.findByIdAndUpdate(
-				followerId,
-				{
-					$pull: { following: followingId },
-				},
-				{ new: true }
-			),
-			User.findByIdAndUpdate(
-				followingId,
-				{
-					$pull: { followers: followerId },
-				},
-				{ new: true }
-			),
-		]);
-	} else if (relationshipExist.status === RELATION_STATUS_TYPES.REQUESTED) {
-		// if the relationship is in the 'requested' state, we just remove the follow request
-		await Relationship.deleteOne({
-			_id: relationshipExist._id,
-		});
-		return ApiSuccess(res, "Follow request canceled successfully.");
-	}
-
-	// Remove the relationship from the Relationship collection
-	await Relationship.deleteOne({
-		follower: followerId,
-		following: followingId,
-	});
-
-	return ApiSuccess(res, "User unfollowed successfully.");
 });
 
 export const acceptFollowRequest = asyncHandler(async (req, res, next) => {
