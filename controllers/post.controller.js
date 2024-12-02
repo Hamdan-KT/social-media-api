@@ -1081,3 +1081,60 @@ export const unlikePost = asyncHandler(async (req, res, next) => {
 
 	return ApiSuccess(res, "post unliked successfull.", updatedPost);
 });
+
+export const toggleDisableCommenting = asyncHandler(async (req, res, next) => {
+	const isDisableComment = req.body?.isDisableComment;
+
+	if (!req.params?.id) {
+		return next(
+			new ApiError(
+				404,
+				"post not found, may be it have been already deleted by owner."
+			)
+		);
+	}
+	await Post.findByIdAndUpdate(
+		req.params?.id,
+		{
+			$set: {
+				isDisableComment,
+			},
+		},
+		{ new: true }
+	).select("-files -likes -comments -reportedBy");
+	return ApiSuccess(
+		res,
+		isDisableComment
+			? "commenting disabled successfull."
+			: "commenting enabled successfull.",
+		{}
+	);
+});
+
+export const toggleHideLikeCount = asyncHandler(async (req, res, next) => {
+	const isHideLikes = req.body?.isHideLikes;
+	if (!req.params?.id) {
+		return next(
+			new ApiError(
+				404,
+				"post not found, may be it have been already deleted by owner."
+			)
+		);
+	}
+	await Post.findByIdAndUpdate(
+		req.params?.id,
+		{
+			$set: {
+				isHideLikes,
+			},
+		},
+		{ new: true }
+	).select("-files -likes -comments -reportedBy");
+	return ApiSuccess(
+		res,
+		isHideLikes
+			? "like count hided successfull."
+			: "like count showed successfull.",
+		{}
+	);
+});

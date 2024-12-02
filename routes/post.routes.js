@@ -11,6 +11,8 @@ import {
 	getUserPosts,
 	likePost,
 	savePost,
+	toggleDisableCommenting,
+	toggleHideLikeCount,
 	unlikePost,
 	unsavePost,
 	updatePost,
@@ -26,7 +28,7 @@ const requireAuth = passport.authenticate("jwt", { session: false }, null);
 router.post("/", requireAuth, postCreateValidator, uploadPosts, createPost);
 
 // update existing post
-router.put("/", requireAuth, updatePost);
+router.put("/:id", requireAuth, updatePost);
 
 // Get the details of a specific post by its ID
 router.get("/:id/post", requireAuth, getPost);
@@ -60,5 +62,11 @@ router.patch("/:id/like", requireAuth, likePost);
 
 // Unlike a specific post by its ID (authenticated user unlikes the post)
 router.patch("/:id/unlike", requireAuth, unlikePost);
+
+// toggle disable commenting by its ID
+router.patch("/:id/toggle-disable-commenting", requireAuth, toggleDisableCommenting);
+
+// toggle hide like count by its ID
+router.patch("/:id/toggle-hide-like-count", requireAuth, toggleHideLikeCount);
 
 export default router;
