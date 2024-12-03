@@ -19,7 +19,7 @@ export class Database {
 			});
 		} catch (error) {
 			console.error(
-				chalk.white.bgRed(` Error connecting to database: ${error} `)
+				chalk.white.bgRed(`Error connecting to database: ${error} `)
 			);
 			throw error;
 		}
