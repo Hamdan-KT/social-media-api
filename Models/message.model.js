@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
-import { MESSAGE_TYPES, MODELS } from "../utils/constants";
+import {
+	MESSAGE_CONTENT_TYPES,
+	MESSAGE_MEDIA_TYPES,
+	MESSAGE_TYPES,
+	MODELS,
+} from "../utils/constants.js";
 
 const { Schema, model, Types } = mongoose;
 
@@ -7,7 +12,13 @@ const { Schema, model, Types } = mongoose;
 const MediaSchema = new Schema({
 	type: {
 		type: String,
-		enum: ["image", "video", "audio", "file", "post"],
+		enum: [
+			MESSAGE_MEDIA_TYPES.IMAGE,
+			MESSAGE_MEDIA_TYPES.VIDEO,
+			MESSAGE_MEDIA_TYPES.AUDIO,
+			MESSAGE_MEDIA_TYPES.FILE,
+		],
+		default: MESSAGE_MEDIA_TYPES.IMAGE,
 		required: true,
 	},
 	url: { type: String, required: true },
@@ -28,10 +39,15 @@ const MessageSchema = new Schema(
 			ref: MODELS.CHAT,
 			required: true,
 		},
-		type: {
+		messageType: {
 			type: String,
 			enum: [MESSAGE_TYPES.GENERAL, MESSAGE_TYPES.REPLY],
 			default: MESSAGE_TYPES.GENERAL,
+		},
+		contentType: {
+			type: String,
+			enum: [MESSAGE_CONTENT_TYPES.TEXT, MESSAGE_CONTENT_TYPES.MEDIA],
+			default: MESSAGE_CONTENT_TYPES.TEXT,
 		},
 		replyRef: {
 			type: Types.ObjectId,
@@ -44,7 +60,13 @@ const MessageSchema = new Schema(
 			type: String,
 			default: null,
 		},
-		media: [MediaSchema],
+		media: {
+			type: [MediaSchema],
+			default: [],
+			required: function () {
+				this.contentType === MESSAGE_CONTENT_TYPES.MEDIA;
+			},
+		},
 		reactions: [
 			{
 				user: { type: Types.ObjectId, ref: MODELS.USER },

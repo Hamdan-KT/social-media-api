@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { MODELS } from "../utils/constants";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model, Types } = mongoose;
 

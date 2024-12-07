@@ -175,11 +175,18 @@ export const getUsers = asyncHandler(async (req, res, next) => {
 	const page = parseInt(req.query.page, 10) || 1;
 	const limit = parseInt(req.query.limit, 10) || 10;
 	const skip = (page - 1) * limit;
+	const searchTerm = req.query.search || "";
 
-	const relationShips = await User.aggregate([
+	const users = await User.aggregate([
 		{
 			$match: {
 				_id: { $ne: new mongoose.Types.ObjectId(String(req.user._id)) },
+				...(searchTerm && {
+					$or: [
+						{ userName: { $regex: searchTerm, $options: "i" } }, // Case-insensitive match for userName
+						{ name: { $regex: searchTerm, $options: "i" } }, // Case-insensitive match for name
+					],
+				}),
 			},
 		},
 		{
@@ -239,7 +246,7 @@ export const getUsers = asyncHandler(async (req, res, next) => {
 		{ $limit: limit },
 	]);
 
-	return ApiSuccess(res, "users fetch successfull.", relationShips);
+	return ApiSuccess(res, "users fetch successfull.", users);
 });
 
 export const updateUser = asyncHandler(async (req, res, next) => {

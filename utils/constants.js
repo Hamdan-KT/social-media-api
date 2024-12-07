@@ -19,7 +19,7 @@ export const MODELS = {
 	SUSPICIOUS_LOGIN: "suspiciouslogins",
 	USER: "users",
 	MESSAGE: "messages",
-	CHAT: "chats"
+	CHAT: "chats",
 };
 
 export const COMMENT_TYPES = {
@@ -34,5 +34,18 @@ export const MESSAGE_TYPES = {
 
 export const MESSAGE_CONTENT_TYPES = {
 	TEXT: "text",
+	MEDIA: "media",
+};
+
+export const MESSAGE_MEDIA_TYPES = {
+	IMAGE: "image",
+	VIDEO: "video",
+	AUDIO: "audio",
 	FILE: "file",
+};
+
+export const messageStatusTypes = {
+	SEND: "send",
+	SENDING: "sending",
+	FAILED: "failed",
 };
