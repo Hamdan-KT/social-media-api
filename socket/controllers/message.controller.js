@@ -113,6 +113,9 @@ export default (io, socket, userSocketMap) => {
 	async function typing({ isTyping, chatId }) {
 		if (chatId) {
 			const existingChat = await Chat.findById(chatId).populate("participants");
+			if (!existingChat) {
+				return;
+			}
 			existingChat.participants.forEach((participant) => {
 				if (participant._id.toString() !== userId) {
 					const recipientSockets = userSocketMap.get(
