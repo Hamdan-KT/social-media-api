@@ -83,11 +83,15 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 				pipeline: [
 					{
 						$match: {
-							$expr: { $in: ["$$userId", "$participants"] },
 							$expr: {
-								$in: [
-									new mongoose.Types.ObjectId(String(req.user._id)),
-									"$participants",
+								$and: [
+									{ $in: ["$$userId", "$participants"] },
+									{
+										$in: [
+											new mongoose.Types.ObjectId(String(req.user._id)),
+											"$participants",
+										],
+									},
 								],
 							},
 						},
@@ -166,7 +170,7 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 	return ApiSuccess(res, "message search users fetch successfull.", users);
 });
 
-export const inintializeChat = asyncHandler(async (req, res, next) => {
+export const initializeChat = asyncHandler(async (req, res, next) => {
 	const userId = req.user?._id;
 	const receiverId = req.params?.receiverId;
 
@@ -174,22 +178,130 @@ export const inintializeChat = asyncHandler(async (req, res, next) => {
 		return next(new ApiError(404, "receiverId is not provided."));
 	}
 
+	let chat;
+
 	// check if already chat exist
-	const existChat = await Chat.findOne({
+	chat = await Chat.findOne({
 		participants: [userId, receiverId],
 		isGroupChat: false,
 	});
 
-	if (!existChat) {
-		const newChat = await Chat.create({
+	if (!chat) {
+		chat = await Chat.create({
 			participants: [userId, receiverId],
 			isGroupChat: false,
 		});
-		return ApiSuccess(res, "chats initialized successfull.", newChat);
 	}
 
-	// return already existing chat data
-	return ApiSuccess(res, "chats alreay exist.", existChat);
+	const formattedChat = await Chat.aggregate([
+		{ $match: { _id: new mongoose.Types.ObjectId(String(chat._id)) } },
+		{
+			$lookup: {
+				from: MODELS.MESSAGE,
+				localField: "lastMessage",
+				foreignField: "_id",
+				as: "lastMessage",
+			},
+		},
+		{ $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
+		{
+			$lookup: {
+				from: MODELS.USER,
+				let: { participantIds: "$participants" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $in: ["$_id", "$$participantIds"] },
+									{
+										$ne: [
+											"$_id",
+											new mongoose.Types.ObjectId(String(req.user._id)),
+										],
+									},
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							name: 1,
+							userName: 1,
+							_id: 1,
+							avatar: 1,
+							isVerified: 1,
+						},
+					},
+				],
+				as: "participants",
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.MESSAGE,
+				let: { participantIds: "$participants._id", chatId: "$_id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ["$chat", "$$chatId"],
+									},
+									{ $in: ["$sender", "$$participantIds"] },
+									{
+										$not: {
+											$in: [
+												new mongoose.Types.ObjectId(String(req.user._id)),
+												"$readBy",
+											],
+										},
+									},
+								],
+							},
+						},
+					},
+				],
+				as: "unreadMessages",
+			},
+		},
+		{
+			$addFields: {
+				unreadMessagesCount: {
+					$size: "$unreadMessages",
+				},
+				receiver: {
+					$cond: {
+						if: { $eq: ["$isGroupChat", false] },
+						then: { $arrayElemAt: ["$participants", 0] },
+						else: null,
+					},
+				},
+			},
+		},
+		{
+			$project: {
+				"lastMessage.replyRef": 0,
+				"lastMessage.media": 0,
+				"lastMessage.readBy": 0,
+				"lastMessage.reactions": 0,
+				"lastMessage.updatedAt": 0,
+				"lastMessage.__v": 0,
+				unreadMessages: 0,
+				participants: 0,
+			},
+		},
+	]);
+
+	if (formattedChat[0]?.lastMessage) {
+		formattedChat[0].lastMessage.createdAt = dayjs(
+			formattedChat[0].lastMessage.createdAt
+		).fromNow(true);
+	}
+
+	//send chat data
+	return ApiSuccess(res, "chats initialized successfull.", formattedChat[0]);
 });
 
 export const fetchUserChats = asyncHandler(async (req, res, next) => {
@@ -200,7 +312,12 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 
 	// Fetch chats for the user with pagination
 	const chats = await Chat.aggregate([
-		{ $match: { participants: new mongoose.Types.ObjectId(String(userId)) } },
+		{
+			$match: {
+				participants: new mongoose.Types.ObjectId(String(userId)),
+				lastMessage: { $ne: null, $exists: true },
+			},
+		},
 		{ $sort: { "lastMessage.createdAt": -1 } },
 		{ $skip: skip },
 		{ $limit: limit },
@@ -304,10 +421,13 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 	]);
 
 	const formattedChats = chats.map((chat) => {
-		chat.lastMessage.createdAt = dayjs(chat?.lastMessage?.createdAt).fromNow(
-			true
-		);
-		return chat;
+		return {
+			...chat,
+			lastMessage: {
+				...chat?.lastMessage,
+				createdAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+			},
+		};
 	});
 
 	return ApiSuccess(res, "chats fetch successfull.", formattedChats);
@@ -422,11 +542,13 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 		},
 	]);
 
-	currentChat[0].lastMessage.createdAt = dayjs(
-		currentChat[0]?.lastMessage?.createdAt
-	).fromNow(true);
+	if (currentChat[0]?.lastMessage) {
+		currentChat[0].lastMessage.createdAt = dayjs(
+			currentChat[0].lastMessage.createdAt
+		).fromNow(true);
+	}
 
-	return ApiSuccess(res, "chats fetch successfull.", currentChat[0]);
+	return ApiSuccess(res, "Chats fetched successfully.", currentChat[0]);
 });
 
 export const fetchChatMessages = asyncHandler(async (req, res, next) => {
@@ -446,6 +568,9 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 				chat: new mongoose.Types.ObjectId(String(chatId)),
 			},
 		},
+		{ $sort: { createdAt: -1 } },
+		{ $limit: limit },
+		{ $skip: skip },
 		{
 			$lookup: {
 				from: MODELS.USER,
@@ -467,6 +592,43 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 		},
 		{ $unwind: "$sender" },
 		{
+			$lookup: {
+				from: MODELS.MESSAGE,
+				localField: "replyRef",
+				foreignField: "_id",
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "sender",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										name: 1,
+										isVerified: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "sender",
+						},
+					},
+					{ $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+					{
+						$project: {
+							readBy: 0,
+							reactions: 0,
+						},
+					},
+				],
+				as: "replyRef",
+			},
+		},
+		{ $unwind: { path: "$replyRef", preserveNullAndEmptyArrays: true } },
+		{
 			$project: {
 				readBy: 0,
 				reactions: 0,
@@ -479,5 +641,5 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 		createdAt: dayjs(msg?.createdAt).format("LT"),
 	}));
 
-	return ApiSuccess(res, "chat messages fetch successfull.", formattedMessages);
+	return ApiSuccess(res, "chat messages fetch successfull.", formattedMessages.reverse());
 });

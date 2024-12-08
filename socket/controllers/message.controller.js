@@ -1,7 +1,10 @@
+import dayjs from "dayjs";
 import { Chat } from "../../Models/chat.model.js";
 import { Message } from "../../Models/message.model.js";
 import { messageStatusTypes } from "../../utils/constants.js";
 import { messageEvents } from "../events.js";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
+dayjs.extend(localizedFormat);
 
 export default (io, socket, userSocketMap) => {
 	const userId = socket.handshake.query.userId;
@@ -33,18 +36,25 @@ export default (io, socket, userSocketMap) => {
 				existingChat = await Chat.findById(chatId).populate("participants");
 
 				if (!existingChat) {
-					// If no existing chat, create a new one
-					const newChat = await Chat.create({
-						participants: [senderId, receiverId],
-						isGroupChat: false,
+					callback({
+						error: true,
+						message: { ...data, status: messageStatusTypes.FAILED },
 					});
-					existingChat = await Chat.findById(newChat._id).populate(
-						"participants"
-					);
 				}
 
+				// if (!existingChat) {
+				// 	// If no existing chat, create a new one
+				// 	const newChat = await Chat.create({
+				// 		participants: [senderId, receiverId],
+				// 		isGroupChat: false,
+				// 	});
+				// 	existingChat = await Chat.findById(newChat._id).populate(
+				// 		"participants"
+				// 	);
+				// }
+
 				// Create and save the message
-				const message = new Message({
+				const message = await Message.create({
 					sender: senderId,
 					chat: existingChat._id,
 					messageType,
@@ -53,7 +63,19 @@ export default (io, socket, userSocketMap) => {
 					content,
 					media,
 				});
-				await message.save();
+
+				const newMessage = await Message.findById(message._id)
+					.populate("sender", "_id userName name avatar isVerified")
+					.populate(
+						"replyRef",
+						"_id sender chat messageType contentType content media createdAt"
+					)
+					.lean();
+
+				const formattedMessage = {
+					...newMessage,
+					createdAt: dayjs(message.createdAt).format("LT"),
+				};
 
 				// Update the lastMessage field in the chat
 				existingChat.lastMessage = message._id;
@@ -67,12 +89,16 @@ export default (io, socket, userSocketMap) => {
 						);
 						if (recipientSockets) {
 							recipientSockets.forEach((socketId) => {
-								io.to(socketId).emit(messageEvents.RECEIVE, message);
+								io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
 							});
 						}
 					}
 				});
-				callback({ status: messageStatusTypes.SEND, messageId: message._id });
+				callback({
+					status: messageStatusTypes.SEND,
+					messageId: message._id,
+					formattedMessage,
+				});
 			}
 		} catch (error) {
 			console.error("Error sending message:", error);
@@ -94,7 +120,14 @@ export default (io, socket, userSocketMap) => {
 					);
 					if (recipientSockets) {
 						recipientSockets.forEach((socketId) => {
-							io.to(socketId).emit(messageEvents.USER_TYPING, isTyping);
+							io.to(socketId).emit(messageEvents.USER_TYPING, {
+								isTyping,
+								chatId,
+							});
+							io.to(socketId).emit(messageEvents.USERLIST_TYPING, {
+								isTyping,
+								chatId,
+							});
 						});
 					}
 				}

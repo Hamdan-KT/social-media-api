@@ -33,25 +33,9 @@ const onDisconnect = (socket) => {
 		}
 	}
 };
-// const onDisconnect = (socket) => {
-// 	console.log(`client disconnected: ${socket.id}`);
-// 	for (const [userId, socketId] of userSocketMap.entries()) {
-// 		if (socketId === socket.id) {
-// 			userSocketMap.delete(userId);
-// 			break;
-// 		}
-// 	}
-// };
 
 io.on("connection", (socket) => {
 	const userId = socket.handshake.query.userId;
-
-	// if (userId) {
-	// 	userSocketMap.set(userId, socket.id);
-	// 	console.log(`user connected: ${userId} with socketID: ${socket.id}`);
-	// } else {
-	// 	console.log(`userId is not provided during connection`);
-	// }
 
 	if (userId) {
 		if (!userSocketMap.has(userId)) {
