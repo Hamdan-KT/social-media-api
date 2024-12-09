@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 import {
+	MESSAGE_MEDIA_TYPES,
 	MESSAGE_TYPES,
 	MODELS,
 	RELATION_STATUS_TYPES,
@@ -641,5 +642,41 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 		createdAt: dayjs(msg?.createdAt).format("LT"),
 	}));
 
-	return ApiSuccess(res, "chat messages fetch successfull.", formattedMessages.reverse());
+	return ApiSuccess(
+		res,
+		"chat messages fetch successfull.",
+		formattedMessages.reverse()
+	);
+});
+
+export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
+	const files = req.files;
+	const formattedMessageFiles = files?.map((file) => {
+		let fileType;
+
+		// Check file type
+		if (file.mimetype.startsWith("image/")) {
+			fileType = MESSAGE_MEDIA_TYPES.IMAGE;
+		} else if (file.mimetype.startsWith("video/")) {
+			fileType = MESSAGE_MEDIA_TYPES.VIDEO;
+		} else if (file.mimetype.startsWith("audio/")) {
+			fileType = MESSAGE_MEDIA_TYPES.AUDIO;
+		}
+
+		// Get file URL
+		const fileUrl = `${req.protocol}://${req.get("host")}/assets/chat-${
+			req?.user?._id
+		}/${file?.filename}`;
+
+		return {
+			type: fileType,
+			url: fileUrl,
+		};
+	});
+
+	return ApiSuccess(
+		res,
+		"messages file uploaded successfull.",
+		formattedMessageFiles
+	);
 });

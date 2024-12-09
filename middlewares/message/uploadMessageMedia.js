@@ -7,8 +7,11 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function uploadPosts(req, res, next) {
-	const uploadDir = path.resolve(__dirname, "../../assets/userPosts");
+function uploadMessageMedia(req, res, next) {
+	const uploadDir = path.resolve(
+		__dirname,
+		`../../assets/chat-${req?.user?._id}`
+	);
 
 	const storage = multer.diskStorage({
 		destination: function (req, file, cb) {
@@ -37,7 +40,8 @@ function uploadPosts(req, res, next) {
 		fileFilter: function (req, file, cb) {
 			if (
 				file.mimetype.startsWith("image/") ||
-				file.mimetype.startsWith("video/")
+				file.mimetype.startsWith("video/") ||
+				file.mimetype.startsWith("audio/")
 			) {
 				cb(null, true);
 			} else {
@@ -54,4 +58,4 @@ function uploadPosts(req, res, next) {
 	});
 }
 
-export default uploadPosts;
+export default uploadMessageMedia;

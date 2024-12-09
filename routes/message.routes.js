@@ -6,7 +6,9 @@ import {
 	getChatSearchUsers,
 	getCurrentChat,
 	initializeChat,
+	uploadMessageMedias,
 } from "../controllers/message.controller.js";
+import uploadMessageMedia from "../middlewares/message/uploadMessageMedia.js";
 
 const router = express.Router();
 
@@ -22,5 +24,12 @@ router.get("/fetch-chats", requireAuth, fetchUserChats);
 router.get("/current-chat/:chatId", requireAuth, getCurrentChat);
 // fetch all users messages based on chat ID
 router.get("/fetch-messages/:chatId", requireAuth, fetchChatMessages);
+// upload message medias
+router.post(
+	"/upload-media",
+	requireAuth,
+	uploadMessageMedia,
+	uploadMessageMedias
+);
 
 export default router;
