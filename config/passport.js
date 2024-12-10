@@ -6,7 +6,7 @@ dotenv.config();
 
 var cookieExtractor = function (req) {
 	var token = null;
-	if (req && req.cookies) {
+	if (req && req.cookies?.accessToken) {
 		token = req.cookies.accessToken;
 	}
 	// console.log({ m_token: token });
