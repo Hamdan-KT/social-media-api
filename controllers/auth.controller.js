@@ -67,6 +67,8 @@ export const login = asyncHandler(async (req, res, next) => {
 			httpOnly: true,
 			secure: isProduction,
 			sameSite: isProduction ? "None" : "Lax",
+			path: "/",
+			maxAge: 7 * 24 * 60 * 60 * 1000,
 		};
 
 		const accessToken = await user.generateAccessToken();
@@ -113,6 +115,8 @@ export const logout = asyncHandler(async (req, res, next) => {
 		httpOnly: true,
 		secure: isProduction,
 		sameSite: isProduction ? "None" : "Lax",
+		path: "/",
+		maxAge: 7 * 24 * 60 * 60 * 1000,
 	};
 
 	return res
@@ -157,6 +161,8 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 				httpOnly: true,
 				secure: isProduction,
 				sameSite: isProduction ? "None" : "Lax",
+				path: "/",
+				maxAge: 7 * 24 * 60 * 60 * 1000,
 			};
 
 			const accessToken = await user.generateAccessToken();
