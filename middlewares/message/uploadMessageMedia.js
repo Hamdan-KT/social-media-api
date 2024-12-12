@@ -3,18 +3,24 @@ import fs from "fs";
 import path from "path";
 import { ApiError } from "../../utils/ApiError.js";
 import { fileURLToPath } from "url";
+import { Chat } from "../../Models/chat.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function uploadMessageMedia(req, res, next) {
-	const uploadDir = path.resolve(
-		__dirname,
-		`../../assets/chat-${req?.user?._id}`
-	);
-
+async function uploadMessageMedia(req, res, next) {
 	const storage = multer.diskStorage({
-		destination: function (req, file, cb) {
+		destination: async function (req, file, cb) {
+			const { chatId } = req.body;
+			console.log(req.body)
+			if (!chatId) {
+				return cb(new ApiError(400, "chatId is required."), false);
+			}
+			const chat = await Chat.findById(chatId);
+			if (!chat) {
+				return cb(new ApiError(400, "chat is not found."), false);
+			}
+			const uploadDir = path.resolve(__dirname, `../../assets/chat-${chatId}`);
 			if (!fs.existsSync(uploadDir)) {
 				return fs.mkdir(uploadDir, { recursive: true }, (err) => {
 					if (err) {
@@ -52,6 +58,7 @@ function uploadMessageMedia(req, res, next) {
 
 	upload.any()(req, res, (err) => {
 		if (err) {
+			console.log({ err });
 			return next(new ApiError(500, "error occured while uploading posts."));
 		}
 		next();

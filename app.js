@@ -32,10 +32,10 @@ app.use(
 	})
 );
 app.use(morgan("dev"));
-app.use("/assets", express.static("assets"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/assets", express.static("assets"));
 app.use(passport.initialize());
 
 // Server health check

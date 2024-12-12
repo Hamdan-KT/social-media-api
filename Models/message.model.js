@@ -67,6 +67,7 @@ const MessageSchema = new Schema(
 				this.contentType === MESSAGE_CONTENT_TYPES.MEDIA;
 			},
 		},
+		deletedFor: { type: Types.ObjectId, ref: MODELS.USER },
 		reactions: [
 			{
 				user: { type: Types.ObjectId, ref: MODELS.USER },

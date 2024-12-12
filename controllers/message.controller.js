@@ -567,6 +567,7 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 		{
 			$match: {
 				chat: new mongoose.Types.ObjectId(String(chatId)),
+				deletedFor: { $ne: new mongoose.Types.ObjectId(String(req.user?._id)) },
 			},
 		},
 		{ $sort: { createdAt: -1 } },
@@ -651,9 +652,10 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 
 export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 	const files = req.files;
+	const { chatId } = req.body;
+
 	const formattedMessageFiles = files?.map((file) => {
 		let fileType;
-
 		// Check file type
 		if (file.mimetype.startsWith("image/")) {
 			fileType = MESSAGE_MEDIA_TYPES.IMAGE;
@@ -664,9 +666,9 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 		}
 
 		// Get file URL
-		const fileUrl = `${req.protocol}://${req.get("host")}/assets/chat-${
-			req?.user?._id
-		}/${file?.filename}`;
+		const fileUrl = `${req.protocol}://${req.get(
+			"host"
+		)}/assets/chat-${chatId}/${file?.filename}`;
 
 		return {
 			type: fileType,
