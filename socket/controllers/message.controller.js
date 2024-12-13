@@ -1,13 +1,14 @@
 import dayjs from "dayjs";
 import { Chat } from "../../Models/chat.model.js";
 import { Message } from "../../Models/message.model.js";
-import { messageStatusTypes } from "../../utils/constants.js";
+import { messageStatusTypes, MODELS } from "../../utils/constants.js";
 import { messageEvents } from "../events.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 dayjs.extend(localizedFormat);
 import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
+import mongoose from "mongoose";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -58,24 +59,103 @@ export default (io, socket, userSocketMap) => {
 					details,
 				});
 
-				const newMessage = await Message.findById(message._id)
-					.populate({
-						path: "sender",
-						select: "_id userName name avatar isVerified",
-					})
-					.populate({
-						path: "replyRef",
-						select:
-							"_id sender chat messageType contentType content media createdAt",
-						populate: {
-							path: "sender",
-							select: "_id userName name avatar isVerified",
+				const newMessage = await Message.aggregate([
+					{
+						$match: {
+							_id: new mongoose.Types.ObjectId(String(message._id)),
 						},
-					})
-					.lean();
+					},
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "sender",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										name: 1,
+										isVerified: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "sender",
+						},
+					},
+					{ $unwind: "$sender" },
+					{
+						$lookup: {
+							from: MODELS.MESSAGE,
+							localField: "replyRef",
+							foreignField: "_id",
+							let: { mediaId: "$details.mediaId" },
+							pipeline: [
+								{
+									$lookup: {
+										from: MODELS.USER,
+										localField: "sender",
+										foreignField: "_id",
+										pipeline: [
+											{
+												$project: {
+													_id: 1,
+													userName: 1,
+													name: 1,
+													isVerified: 1,
+													avatar: 1,
+												},
+											},
+										],
+										as: "sender",
+									},
+								},
+								{
+									$unwind: {
+										path: "$sender",
+										preserveNullAndEmptyArrays: true,
+									},
+								},
+								{
+									$addFields: {
+										media: {
+											$filter: {
+												input: "$media",
+												as: "mediaItem",
+												cond: {
+													$eq: [
+														"$$mediaItem._id",
+														{ $toObjectId: "$$mediaId" },
+													],
+												},
+											},
+										},
+									},
+								},
+								{
+									$project: {
+										readBy: 0,
+										reactions: 0,
+									},
+								},
+							],
+							as: "replyRef",
+						},
+					},
+					{
+						$unwind: { path: "$replyRef", preserveNullAndEmptyArrays: true },
+					},
+					{
+						$project: {
+							readBy: 0,
+							reactions: 0,
+						},
+					},
+				]);
 
 				const formattedMessage = {
-					...newMessage,
+					...newMessage[0],
 					createdAt: dayjs(message.createdAt).format("LT"),
 				};
 
