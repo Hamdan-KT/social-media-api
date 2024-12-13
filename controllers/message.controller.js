@@ -598,6 +598,7 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "replyRef",
 				foreignField: "_id",
+				let: { mediaId: "$details.mediaId" },
 				pipeline: [
 					{
 						$lookup: {
@@ -619,6 +620,19 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 						},
 					},
 					{ $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+					{
+						$addFields: {
+							media: {
+								$filter: {
+									input: "$media",
+									as: "mediaItem",
+									cond: {
+										$eq: ["$$mediaItem._id", { $toObjectId: "$$mediaId" }],
+									},
+								},
+							},
+						},
+					},
 					{
 						$project: {
 							readBy: 0,
@@ -666,9 +680,9 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 		}
 
 		// Get file URL
-		const fileUrl = `${req.protocol}://${req.get(
-			"host"
-		)}/assets/chat-${chatId}/${file?.filename}`;
+		const fileUrl = `${req.protocol}://${req.get("host")}/assets/chat-${
+			req.user?._id
+		}/${file?.filename}`;
 
 		return {
 			type: fileType,

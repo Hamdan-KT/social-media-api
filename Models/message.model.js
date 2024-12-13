@@ -10,6 +10,12 @@ const { Schema, model, Types } = mongoose;
 
 // Media schema
 const MediaSchema = new Schema({
+	_id: {
+		type: Types.ObjectId,
+		auto: true,
+		index: true,
+		required: true,
+	},
 	type: {
 		type: String,
 		enum: [
@@ -66,6 +72,10 @@ const MessageSchema = new Schema(
 			required: function () {
 				this.contentType === MESSAGE_CONTENT_TYPES.MEDIA;
 			},
+		},
+		details: {
+			type: Object,
+			required: false,
 		},
 		deletedFor: { type: Types.ObjectId, ref: MODELS.USER },
 		reactions: [

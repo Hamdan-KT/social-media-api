@@ -11,16 +11,19 @@ const __dirname = path.dirname(__filename);
 async function uploadMessageMedia(req, res, next) {
 	const storage = multer.diskStorage({
 		destination: async function (req, file, cb) {
-			const { chatId } = req.body;
-			console.log(req.body)
-			if (!chatId) {
-				return cb(new ApiError(400, "chatId is required."), false);
-			}
-			const chat = await Chat.findById(chatId);
-			if (!chat) {
-				return cb(new ApiError(400, "chat is not found."), false);
-			}
-			const uploadDir = path.resolve(__dirname, `../../assets/chat-${chatId}`);
+			// const { chatId } = req.body;
+			// console.log(req.body)
+			// if (!chatId) {
+			// 	return cb(new ApiError(400, "chatId is required."), false);
+			// }
+			// const chat = await Chat.findById(chatId);
+			// if (!chat) {
+			// 	return cb(new ApiError(400, "chat is not found."), false);
+			// }
+			const uploadDir = path.resolve(
+				__dirname,
+				`../../assets/chat-${req.user?._id}`
+			);
 			if (!fs.existsSync(uploadDir)) {
 				return fs.mkdir(uploadDir, { recursive: true }, (err) => {
 					if (err) {

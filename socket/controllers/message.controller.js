@@ -6,6 +6,10 @@ import { messageEvents } from "../events.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 dayjs.extend(localizedFormat);
 import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default (io, socket, userSocketMap) => {
 	const userId = socket.handshake.query.userId;
@@ -20,6 +24,7 @@ export default (io, socket, userSocketMap) => {
 				replyRef,
 				content,
 				media,
+				details,
 			} = data;
 			let existingChat = null;
 
@@ -50,6 +55,7 @@ export default (io, socket, userSocketMap) => {
 					replyRef,
 					content,
 					media,
+					details,
 				});
 
 				const newMessage = await Message.findById(message._id)
@@ -164,8 +170,13 @@ export default (io, socket, userSocketMap) => {
 
 			if (deletedMessage?.media?.length > 0) {
 				const deletePromises = deletedMessage?.media?.map(async (file) => {
-					if (fs.promises.access(file?.url)) {
-						fs.promises.unlink(file?.url);
+					const filePath = path.resolve(
+						__dirname,
+						`../..${new URL(file.url)?.pathname}`
+					);
+					console.log({ filePath });
+					if (fs.promises.access(filePath)) {
+						fs.promises.unlink(filePath);
 					}
 				});
 				await Promise.all(deletePromises);
