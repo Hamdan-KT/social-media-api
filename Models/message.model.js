@@ -84,7 +84,12 @@ const MessageSchema = new Schema(
 				emoji: { type: String }, // Store the emoji as a string (e.g., "❤️")
 			},
 		],
-		readBy: [{ type: Types.ObjectId, ref: MODELS.USER }],
+		readBy: [
+			{
+				user: { type: Types.ObjectId, ref: MODELS.USER },
+				readAt: { type: Date, default: Date.now },
+			},
+		],
 	},
 	{ timestamps: true }
 );

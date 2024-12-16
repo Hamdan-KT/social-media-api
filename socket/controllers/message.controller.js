@@ -3,12 +3,15 @@ import { Chat } from "../../Models/chat.model.js";
 import { Message } from "../../Models/message.model.js";
 import { messageStatusTypes, MODELS } from "../../utils/constants.js";
 import { messageEvents } from "../events.js";
+import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 dayjs.extend(localizedFormat);
+dayjs.extend(relativeTime);
 import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import mongoose from "mongoose";
+import { getRoleBasedCurrentChat } from "../queries/message.query.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -29,8 +32,9 @@ export default (io, socket, userSocketMap) => {
 			} = data;
 			let existingChat = null;
 
+			// check chatId is not provided
 			if (!chatId) {
-				callback({
+				return callback({
 					error: true,
 					message: { ...data, status: messageStatusTypes.FAILED },
 				});
@@ -41,7 +45,7 @@ export default (io, socket, userSocketMap) => {
 				existingChat = await Chat.findById(chatId).populate("participants");
 
 				if (!existingChat) {
-					callback({
+					return callback({
 						error: true,
 						message: { ...data, status: messageStatusTypes.FAILED },
 					});
@@ -49,7 +53,7 @@ export default (io, socket, userSocketMap) => {
 
 				// Create and save the message
 				const message = await Message.create({
-					sender: senderId,
+					sender: userId,
 					chat: existingChat._id,
 					messageType,
 					contentType,
@@ -59,6 +63,7 @@ export default (io, socket, userSocketMap) => {
 					details,
 				});
 
+				//get fromatted new message using aggregate
 				const newMessage = await Message.aggregate([
 					{
 						$match: {
@@ -154,6 +159,7 @@ export default (io, socket, userSocketMap) => {
 					},
 				]);
 
+				//format new message's createdAt
 				const formattedMessage = {
 					...newMessage[0],
 					createdAt: dayjs(message.createdAt).format("LT"),
@@ -163,15 +169,56 @@ export default (io, socket, userSocketMap) => {
 				existingChat.lastMessage = message._id;
 				await existingChat.save();
 
+				//get sender's and receiver's current formatted chat to updated latest chat list
+				let senderCurrentChat = await getRoleBasedCurrentChat(
+					existingChat?._id,
+					userId,
+					{ sender: true }
+				);
+				let receiverCurrentChat = await getRoleBasedCurrentChat(
+					existingChat?._id,
+					userId,
+					{ sender: false }
+				);
+
+				//formatting last message time of sender's and receiver's chat
+				if (
+					receiverCurrentChat?.lastMessage &&
+					senderCurrentChat?.lastMessage
+				) {
+					senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+						senderCurrentChat.lastMessage.createdAt
+					).fromNow(true);
+					receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+						receiverCurrentChat.lastMessage.createdAt
+					).fromNow(true);
+				}
+
 				// Notify all participants of the new message
 				existingChat.participants.forEach((participant) => {
-					if (participant._id.toString() !== senderId) {
-						const recipientSockets = userSocketMap.get(
-							participant._id.toString()
-						);
-						if (recipientSockets) {
+					const recipientSockets = userSocketMap.get(
+						participant._id.toString()
+					);
+					if (recipientSockets) {
+						if (participant._id.toString() !== userId) {
 							recipientSockets.forEach((socketId) => {
-								io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
+								if (socketId !== socket?.id) {
+									io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
+								}
+								io.to(socketId).emit(
+									messageEvents.CHATLIST_UPDATED,
+									receiverCurrentChat
+								);
+							});
+						} else {
+							recipientSockets.forEach((socketId) => {
+								if (socketId !== socket?.id) {
+									io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
+								}
+								io.to(socketId).emit(
+									messageEvents.CHATLIST_UPDATED,
+									senderCurrentChat
+								);
 							});
 						}
 					}
@@ -220,6 +267,7 @@ export default (io, socket, userSocketMap) => {
 		}
 	}
 
+	// unsend message
 	async function unsendChat(data, callback) {
 		try {
 			const { messageId, unsend = true } = data;
@@ -278,14 +326,48 @@ export default (io, socket, userSocketMap) => {
 				await chat.save();
 			}
 
+			//get sender's and receiver's current formatted chat to updated latest chat list
+			let senderCurrentChat = await getRoleBasedCurrentChat(chat?._id, userId, {
+				sender: true,
+			});
+			let receiverCurrentChat = await getRoleBasedCurrentChat(
+				chat?._id,
+				userId,
+				{ sender: false }
+			);
+
+			//formatting last message time of sender's and receiver's chat
+			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {
+				senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+					senderCurrentChat.lastMessage.createdAt
+				).fromNow(true);
+				receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+					receiverCurrentChat.lastMessage.createdAt
+				).fromNow(true);
+			}
+
 			chat.participants.forEach((participant) => {
-				if (participant._id.toString() !== userId) {
-					const recipientSockets = userSocketMap.get(
-						participant._id.toString()
-					);
-					if (recipientSockets) {
+				const recipientSockets = userSocketMap.get(participant._id.toString());
+				if (recipientSockets) {
+					if (participant._id.toString() !== userId) {
 						recipientSockets.forEach((socketId) => {
-							io.to(socketId).emit(messageEvents.MESSAGE_DELETED, messageId);
+							if (socketId !== socket?.id) {
+								io.to(socketId).emit(messageEvents.MESSAGE_DELETED, messageId);
+							}
+							io.to(socketId).emit(
+								messageEvents.CHATLIST_UPDATED,
+								receiverCurrentChat
+							);
+						});
+					} else {
+						recipientSockets.forEach((socketId) => {
+							if (socketId !== socket?.id) {
+								io.to(socketId).emit(messageEvents.MESSAGE_DELETED, messageId);
+							}
+							io.to(socketId).emit(
+								messageEvents.CHATLIST_UPDATED,
+								senderCurrentChat
+							);
 						});
 					}
 				}
@@ -293,7 +375,73 @@ export default (io, socket, userSocketMap) => {
 
 			callback({ status: true, messageId });
 		} catch (error) {
-			callback({ status: false, error: "Failed to delete message" });
+			callback({ status: false, error: "failed to delete message." });
+		}
+	}
+
+	async function readMessage({ chatId }) {
+		if (chatId) {
+			const existingChat = await Chat.findById(chatId).populate("participants");
+			if (!existingChat) {
+				return;
+			}
+			await Message.updateMany(
+				{
+					chat: existingChat?._id,
+					"readBy.user": { $ne: userId },
+				},
+				{
+					$addToSet: {
+						readBy: { user: userId },
+					},
+				},
+				{ new: true }
+			);
+
+			//get sender's and receiver's current formatted chat to updated latest chat list
+			let senderCurrentChat = await getRoleBasedCurrentChat(
+				existingChat?._id,
+				userId,
+				{
+					sender: true,
+				}
+			);
+			let receiverCurrentChat = await getRoleBasedCurrentChat(
+				existingChat?._id,
+				userId,
+				{ sender: false }
+			);
+
+			//formatting last message time of sender's and receiver's chat
+			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {
+				senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+					senderCurrentChat.lastMessage.createdAt
+				).fromNow(true);
+				receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
+					receiverCurrentChat.lastMessage.createdAt
+				).fromNow(true);
+			}
+
+			existingChat.participants.forEach((participant) => {
+				const recipientSockets = userSocketMap.get(participant._id.toString());
+				if (recipientSockets) {
+					if (participant._id.toString() !== userId) {
+						recipientSockets.forEach((socketId) => {
+							io.to(socketId).emit(
+								messageEvents.CHATLIST_UPDATED,
+								receiverCurrentChat
+							);
+						});
+					} else {
+						recipientSockets.forEach((socketId) => {
+							io.to(socketId).emit(
+								messageEvents.CHATLIST_UPDATED,
+								senderCurrentChat
+							);
+						});
+					}
+				}
+			});
 		}
 	}
 
@@ -301,4 +449,5 @@ export default (io, socket, userSocketMap) => {
 	socket.on(messageEvents.SEND_MESSAGE, sendMessage);
 	socket.on(messageEvents.TYPING, typing);
 	socket.on(messageEvents.DELETE_MESSAGE, unsendChat);
+	socket.on(messageEvents.CHAT_READ, readMessage);
 };

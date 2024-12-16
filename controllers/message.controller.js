@@ -255,7 +255,13 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
@@ -319,7 +325,6 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				lastMessage: { $ne: null, $exists: true },
 			},
 		},
-		{ $sort: { "lastMessage.createdAt": -1 } },
 		{ $skip: skip },
 		{ $limit: limit },
 		{
@@ -381,7 +386,13 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
@@ -407,6 +418,7 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				},
 			},
 		},
+		{ $sort: { "lastMessage.createdAt": -1 } },
 		{
 			$project: {
 				"lastMessage.replyRef": 0,
@@ -426,7 +438,7 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 			...chat,
 			lastMessage: {
 				...chat?.lastMessage,
-				createdAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+				formattedCreatedAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
 			},
 		};
 	});
@@ -503,7 +515,13 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
