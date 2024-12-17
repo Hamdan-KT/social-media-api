@@ -385,10 +385,18 @@ export default (io, socket, userSocketMap) => {
 			if (!existingChat) {
 				return;
 			}
+
+			const unreadMessages = await Message.find({
+				chat: existingChat?._id,
+				"readBy.user": { $ne: userId },
+				sender: { $ne: userId },
+			});
+			console.log({ unreadMessages });
 			await Message.updateMany(
 				{
 					chat: existingChat?._id,
 					"readBy.user": { $ne: userId },
+					sender: { $ne: userId },
 				},
 				{
 					$addToSet: {
@@ -397,6 +405,8 @@ export default (io, socket, userSocketMap) => {
 				},
 				{ new: true }
 			);
+
+			console.log({ existingChat });
 
 			//get sender's and receiver's current formatted chat to updated latest chat list
 			let senderCurrentChat = await getRoleBasedCurrentChat(
@@ -411,6 +421,9 @@ export default (io, socket, userSocketMap) => {
 				userId,
 				{ sender: false }
 			);
+
+			console.log({ senderCurrentChat });
+			console.log({ receiverCurrentChat });
 
 			//formatting last message time of sender's and receiver's chat
 			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {

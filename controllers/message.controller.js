@@ -14,6 +14,7 @@ import {
 import User from "../Models/user.model.js";
 import { Chat } from "../Models/chat.model.js";
 import { Message } from "../Models/message.model.js";
+import { getRoleBasedCurrentChat } from "../socket/queries/message.query.js";
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
@@ -201,6 +202,51 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -289,9 +335,9 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -332,6 +378,51 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -421,9 +512,9 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		{ $sort: { "lastMessage.createdAt": -1 } },
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -437,8 +528,10 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		return {
 			...chat,
 			lastMessage: {
-				...chat?.lastMessage,
-				formattedCreatedAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+				...(chat?.lastMessage && {
+					...chat?.lastMessage,
+					formattedCreatedAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+				}),
 			},
 		};
 	});
@@ -461,6 +554,51 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -549,9 +687,9 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -561,6 +699,10 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 		},
 	]);
 
+	// let chat = await getRoleBasedCurrentChat(chatId, req.user?._id, {
+	// 	sender: true,
+	// });
+
 	if (currentChat[0]?.lastMessage) {
 		currentChat[0].lastMessage.createdAt = dayjs(
 			currentChat[0].lastMessage.createdAt
@@ -568,6 +710,7 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 	}
 
 	return ApiSuccess(res, "Chats fetched successfully.", currentChat[0]);
+	// return ApiSuccess(res, "Chats fetched successfully.", chat);
 });
 
 export const fetchChatMessages = asyncHandler(async (req, res, next) => {
