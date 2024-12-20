@@ -22,13 +22,13 @@ export default (io, socket, userSocketMap) => {
 		try {
 			const {
 				chatId,
-				senderId,
 				messageType,
 				contentType,
 				replyRef,
 				content,
 				media,
 				details,
+				receiverId,
 			} = data;
 			let existingChat = null;
 
@@ -172,13 +172,11 @@ export default (io, socket, userSocketMap) => {
 				//get sender's and receiver's current formatted chat to updated latest chat list
 				let senderCurrentChat = await getRoleBasedCurrentChat(
 					existingChat?._id,
-					userId,
-					{ sender: true }
+					userId
 				);
 				let receiverCurrentChat = await getRoleBasedCurrentChat(
 					existingChat?._id,
-					userId,
-					{ sender: false }
+					receiverId
 				);
 
 				//formatting last message time of sender's and receiver's chat
@@ -270,7 +268,7 @@ export default (io, socket, userSocketMap) => {
 	// unsend message
 	async function unsendChat(data, callback) {
 		try {
-			const { messageId, unsend = true } = data;
+			const { messageId, receiverId, unsend = true } = data;
 
 			if (!messageId) {
 				return callback({ status: false, error: "Message ID is required" });
@@ -315,7 +313,9 @@ export default (io, socket, userSocketMap) => {
 			}
 
 			// Update the chat's last message if needed
-			const chat = await Chat.findById(deletedMessage.chat);
+			const chat = await Chat.findById(deletedMessage.chat).populate(
+				"participants"
+			);
 
 			if (chat && chat.lastMessage.toString() === messageId) {
 				const latestMessage = await Message.findOne({ chat: chat._id })
@@ -327,13 +327,10 @@ export default (io, socket, userSocketMap) => {
 			}
 
 			//get sender's and receiver's current formatted chat to updated latest chat list
-			let senderCurrentChat = await getRoleBasedCurrentChat(chat?._id, userId, {
-				sender: true,
-			});
+			let senderCurrentChat = await getRoleBasedCurrentChat(chat?._id, userId);
 			let receiverCurrentChat = await getRoleBasedCurrentChat(
 				chat?._id,
-				userId,
-				{ sender: false }
+				receiverId
 			);
 
 			//formatting last message time of sender's and receiver's chat
@@ -379,19 +376,13 @@ export default (io, socket, userSocketMap) => {
 		}
 	}
 
-	async function readMessage({ chatId }) {
+	async function readMessage({ chatId, receiverId }) {
 		if (chatId) {
 			const existingChat = await Chat.findById(chatId).populate("participants");
 			if (!existingChat) {
 				return;
 			}
 
-			const unreadMessages = await Message.find({
-				chat: existingChat?._id,
-				"readBy.user": { $ne: userId },
-				sender: { $ne: userId },
-			});
-			console.log({ unreadMessages });
 			await Message.updateMany(
 				{
 					chat: existingChat?._id,
@@ -406,24 +397,15 @@ export default (io, socket, userSocketMap) => {
 				{ new: true }
 			);
 
-			console.log({ existingChat });
-
 			//get sender's and receiver's current formatted chat to updated latest chat list
 			let senderCurrentChat = await getRoleBasedCurrentChat(
 				existingChat?._id,
-				userId,
-				{
-					sender: true,
-				}
+				userId
 			);
 			let receiverCurrentChat = await getRoleBasedCurrentChat(
 				existingChat?._id,
-				userId,
-				{ sender: false }
+				receiverId
 			);
-
-			console.log({ senderCurrentChat });
-			console.log({ receiverCurrentChat });
 
 			//formatting last message time of sender's and receiver's chat
 			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {

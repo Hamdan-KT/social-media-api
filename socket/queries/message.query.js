@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Chat } from "../../Models/chat.model.js";
 import { MODELS } from "../../utils/constants.js";
 
-export const getRoleBasedCurrentChat = async (chatId, userId, options = {}) => {
+export const getRoleBasedCurrentChat = async (chatId, userId) => {
 	let chat = await Chat.aggregate([
 		{ $match: { _id: new mongoose.Types.ObjectId(String(chatId)) } },
 		{ $sort: { "lastMessage.createdAt": -1 } },
@@ -75,19 +75,9 @@ export const getRoleBasedCurrentChat = async (chatId, userId, options = {}) => {
 							$expr: {
 								$and: [
 									{ $in: ["$_id", "$$participantIds"] },
-									options?.sender
-										? {
-												$ne: [
-													"$_id",
-													new mongoose.Types.ObjectId(String(userId)),
-												],
-										  }
-										: {
-												$eq: [
-													"$_id",
-													new mongoose.Types.ObjectId(String(userId)),
-												],
-										  },
+									{
+										$ne: ["$_id", new mongoose.Types.ObjectId(String(userId))],
+									},
 								],
 							},
 						},
@@ -156,14 +146,14 @@ export const getRoleBasedCurrentChat = async (chatId, userId, options = {}) => {
 		},
 		{
 			$project: {
-				"lastMessage.readedUsers": 0,
+				// "lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
 				unreadMessages: 0,
-				participants: 0,
+				// participants: 0,
 			},
 		},
 	]);

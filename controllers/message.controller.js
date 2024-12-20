@@ -699,10 +699,6 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 		},
 	]);
 
-	// let chat = await getRoleBasedCurrentChat(chatId, req.user?._id, {
-	// 	sender: true,
-	// });
-
 	if (currentChat[0]?.lastMessage) {
 		currentChat[0].lastMessage.createdAt = dayjs(
 			currentChat[0].lastMessage.createdAt
@@ -710,7 +706,6 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 	}
 
 	return ApiSuccess(res, "Chats fetched successfully.", currentChat[0]);
-	// return ApiSuccess(res, "Chats fetched successfully.", chat);
 });
 
 export const fetchChatMessages = asyncHandler(async (req, res, next) => {
