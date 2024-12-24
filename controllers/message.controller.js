@@ -7,14 +7,12 @@ import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 import {
 	MESSAGE_MEDIA_TYPES,
-	MESSAGE_TYPES,
 	MODELS,
 	RELATION_STATUS_TYPES,
 } from "../utils/constants.js";
 import User from "../Models/user.model.js";
 import { Chat } from "../Models/chat.model.js";
 import { Message } from "../Models/message.model.js";
-import { getRoleBasedCurrentChat } from "../socket/queries/message.query.js";
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
@@ -173,25 +171,31 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 });
 
 export const initializeChat = asyncHandler(async (req, res, next) => {
+	console.log(req.body)
 	const userId = req.user?._id;
-	const receiverId = req.params?.receiverId;
+	const participants = req.body?.participants || [];
+	const isGroupChat = req.body?.isGroupChat || false;
+	const groupName = req.body?.isGroupChat ? req.body?.groupName : null;
 
-	if (!receiverId) {
-		return next(new ApiError(404, "receiverId is not provided."));
+	if (!participants.length === 0) {
+		return next(new ApiError(404, "participants Id is not provided."));
 	}
 
 	let chat;
 
 	// check if already chat exist
-	chat = await Chat.findOne({
-		participants: [userId, receiverId],
-		isGroupChat: false,
-	});
+	chat = !isGroupChat
+		? await Chat.findOne({
+				participants: [userId, ...participants],
+				isGroupChat,
+		  })
+		: undefined;
 
 	if (!chat) {
 		chat = await Chat.create({
-			participants: [userId, receiverId],
-			isGroupChat: false,
+			participants: [userId, ...participants],
+			isGroupChat,
+			groupName,
 		});
 	}
 
