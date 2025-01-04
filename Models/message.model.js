@@ -10,6 +10,12 @@ const { Schema, model, Types } = mongoose;
 
 // Media schema
 const MediaSchema = new Schema({
+	_id: {
+		type: Types.ObjectId,
+		auto: true,
+		index: true,
+		required: true,
+	},
 	type: {
 		type: String,
 		enum: [
@@ -67,6 +73,10 @@ const MessageSchema = new Schema(
 				this.contentType === MESSAGE_CONTENT_TYPES.MEDIA;
 			},
 		},
+		details: {
+			type: Object,
+			required: false,
+		},
 		deletedFor: { type: Types.ObjectId, ref: MODELS.USER },
 		reactions: [
 			{
@@ -74,7 +84,12 @@ const MessageSchema = new Schema(
 				emoji: { type: String }, // Store the emoji as a string (e.g., "❤️")
 			},
 		],
-		readBy: [{ type: Types.ObjectId, ref: MODELS.USER }],
+		readBy: [
+			{
+				user: { type: Types.ObjectId, ref: MODELS.USER },
+				readAt: { type: Date, default: Date.now },
+			},
+		],
 	},
 	{ timestamps: true }
 );

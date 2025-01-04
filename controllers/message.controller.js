@@ -7,7 +7,6 @@ import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 import {
 	MESSAGE_MEDIA_TYPES,
-	MESSAGE_TYPES,
 	MODELS,
 	RELATION_STATUS_TYPES,
 } from "../utils/constants.js";
@@ -172,25 +171,31 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 });
 
 export const initializeChat = asyncHandler(async (req, res, next) => {
+	console.log(req.body)
 	const userId = req.user?._id;
-	const receiverId = req.params?.receiverId;
+	const participants = req.body?.participants || [];
+	const isGroupChat = req.body?.isGroupChat || false;
+	const groupName = req.body?.isGroupChat ? req.body?.groupName : null;
 
-	if (!receiverId) {
-		return next(new ApiError(404, "receiverId is not provided."));
+	if (!participants.length === 0) {
+		return next(new ApiError(404, "participants Id is not provided."));
 	}
 
 	let chat;
 
 	// check if already chat exist
-	chat = await Chat.findOne({
-		participants: [userId, receiverId],
-		isGroupChat: false,
-	});
+	chat = !isGroupChat
+		? await Chat.findOne({
+				participants: [userId, ...participants],
+				isGroupChat,
+		  })
+		: undefined;
 
 	if (!chat) {
 		chat = await Chat.create({
-			participants: [userId, receiverId],
-			isGroupChat: false,
+			participants: [userId, ...participants],
+			isGroupChat,
+			groupName,
 		});
 	}
 
@@ -201,6 +206,51 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -255,7 +305,13 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
@@ -283,9 +339,9 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -319,7 +375,6 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				lastMessage: { $ne: null, $exists: true },
 			},
 		},
-		{ $sort: { "lastMessage.createdAt": -1 } },
 		{ $skip: skip },
 		{ $limit: limit },
 		{
@@ -327,6 +382,51 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -381,7 +481,13 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
@@ -407,11 +513,12 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				},
 			},
 		},
+		{ $sort: { "lastMessage.createdAt": -1 } },
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -425,8 +532,10 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		return {
 			...chat,
 			lastMessage: {
-				...chat?.lastMessage,
-				createdAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+				...(chat?.lastMessage && {
+					...chat?.lastMessage,
+					formattedCreatedAt: dayjs(chat?.lastMessage?.createdAt).fromNow(true),
+				}),
 			},
 		};
 	});
@@ -449,6 +558,51 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
+				let: { readBy: "$readBy" },
+				pipeline: [
+					{
+						$lookup: {
+							from: MODELS.USER,
+							localField: "readBy.user",
+							foreignField: "_id",
+							pipeline: [
+								{
+									$project: {
+										_id: 1,
+										userName: 1,
+										avatar: 1,
+									},
+								},
+							],
+							as: "readedUsers",
+						},
+					},
+					{
+						$addFields: {
+							readBy: {
+								$map: {
+									input: "$readBy",
+									as: "read",
+									in: {
+										user: {
+											$arrayElemAt: [
+												{
+													$filter: {
+														input: "$readedUsers",
+														as: "readUser",
+														cond: { $eq: ["$$readUser._id", "$$read.user"] },
+													},
+												},
+												0,
+											],
+										},
+										readAt: "$$read.readAt",
+									},
+								},
+							},
+						},
+					},
+				],
 				as: "lastMessage",
 			},
 		},
@@ -503,7 +657,13 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 										$not: {
 											$in: [
 												new mongoose.Types.ObjectId(String(req.user._id)),
-												"$readBy",
+												{
+													$map: {
+														input: "$readBy",
+														as: "reader",
+														in: "$$reader.user",
+													},
+												},
 											],
 										},
 									},
@@ -531,9 +691,9 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$project: {
+				"lastMessage.readedUsers": 0,
 				"lastMessage.replyRef": 0,
 				"lastMessage.media": 0,
-				"lastMessage.readBy": 0,
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
@@ -598,6 +758,7 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "replyRef",
 				foreignField: "_id",
+				let: { mediaId: "$details.mediaId" },
 				pipeline: [
 					{
 						$lookup: {
@@ -619,6 +780,19 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 						},
 					},
 					{ $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+					{
+						$addFields: {
+							media: {
+								$filter: {
+									input: "$media",
+									as: "mediaItem",
+									cond: {
+										$eq: ["$$mediaItem._id", { $toObjectId: "$$mediaId" }],
+									},
+								},
+							},
+						},
+					},
 					{
 						$project: {
 							readBy: 0,
@@ -666,9 +840,9 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 		}
 
 		// Get file URL
-		const fileUrl = `${req.protocol}://${req.get(
-			"host"
-		)}/assets/chat-${chatId}/${file?.filename}`;
+		const fileUrl = `${req.protocol}://${req.get("host")}/assets/chat-${
+			req.user?._id
+		}/${file?.filename}`;
 
 		return {
 			type: fileType,
