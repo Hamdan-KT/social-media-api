@@ -9,13 +9,14 @@ import Relationship from "../Models/relationship.model.js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
 import { MODELS, RELATION_STATUS_TYPES } from "../utils/constants.js";
+import cloudinary from "../utils/cloudinary.js";
 dayjs.extend(relativeTime);
+import fs from "fs";
+import { getPublicIdFromCloudinaryURL } from "../utils/common.js";
 
 export const createPost = asyncHandler(async (req, res, next) => {
 	const session = await mongoose.startSession();
 	session.startTransaction();
-
-	console.log(req.body);
 
 	try {
 		const {
@@ -48,45 +49,65 @@ export const createPost = asyncHandler(async (req, res, next) => {
 		//parse json data
 		const postDataParsed = JSON.parse(postData);
 
-		//format to db structrue
-		const formattedPostFilesData = postFiles?.map((file) => {
-			let fileType;
+		//upload files to cloudianry
+		const uploadToCloudinary = async (files) => {
+			const uploads = files.map((file) => {
+				return new Promise((resolve, reject) => {
+					const uploadStream = cloudinary.uploader.upload_stream(
+						{
+							resource_type: "auto",
+							folder: "userposts",
+						},
+						(error, result) => {
+							if (error) return reject(error);
+							const fileType = result?.resource_type;
+							const fileUrl = result?.url;
+							resolve({
+								post: post[0]?._id,
+								fileUrl,
+								fileType,
+								tags: postDataParsed[file?.fieldname]?.tags || [],
+								altText: postDataParsed[file?.fieldname]?.altText || "",
+							});
+						}
+					);
+					fs.createReadStream(file.path).pipe(uploadStream);
+				});
+			});
 
-			// Check file type
-			if (file?.mimetype.startsWith("image/")) {
-				fileType = "image";
-			} else if (file?.mimetype.startsWith("video/")) {
-				fileType = "video";
-			}
+			// Wait for all uploads to finish
+			return Promise.all(uploads);
+		};
 
-			// Get file URL
-			const fileUrl = `${req.protocol}://${req.get("host")}/assets/userPosts/${
-				file?.filename
-			}`;
+		await uploadToCloudinary(postFiles)
+			.then(async (results) => {
+				// Delete temporary files
+				const deletePromises = postFiles.map((file) =>
+					fs.promises.unlink(file?.path)
+				);
+				await Promise.all(deletePromises);
 
-			return {
-				post: post[0]?._id,
-				fileUrl,
-				fileType,
-				tags: postDataParsed[file?.fieldname]?.tags || [],
-				altText: postDataParsed[file?.fieldname]?.altText || "",
-			};
-		});
+				// Insert media into PostMedia collection
+				const insertedMedias = await PostMedia.insertMany(
+					results,
+					{
+						session,
+					}
+				);
 
-		// Insert media into PostMedia collection
-		const insertedMedias = await PostMedia.insertMany(formattedPostFilesData, {
-			session,
-		});
+				post[0].files = [...insertedMedias?.map((media) => media?._id)];
+				await post[0].save();
 
-		post[0].files = [...insertedMedias?.map((media) => media?._id)];
-		await post[0].save();
+				// Commit the transaction
+				await session.commitTransaction();
+				session.endSession();
 
-		// Commit the transaction
-		await session.commitTransaction();
-		session.endSession();
-
-		post[0].createdAt = dayjs(post[0].createdAt).fromNow();
-		return ApiSuccess(res, "post created successfully.", post[0]);
+				post[0].createdAt = dayjs(post[0].createdAt).fromNow();
+				return ApiSuccess(res, "post created successfully.", post[0]);
+			})
+			.catch((error) => {
+				console.error("Error uploading files:", error);
+			});
 	} catch (error) {
 		console.log(error);
 		// Rollback transaction
@@ -381,6 +402,7 @@ export const getAllPosts = asyncHandler(async (req, res, next) => {
 export const deletePost = asyncHandler(async (req, res, next) => {
 	const post = await Post.findById(req.params.id)
 		.populate("user", "_id userName name avatar isPublic")
+		.populate("files")
 		.lean();
 
 	if (!post) {
@@ -398,9 +420,17 @@ export const deletePost = asyncHandler(async (req, res, next) => {
 		);
 	}
 
-	await Post.findByIdAndDelete(post._id);
-
-	return ApiSuccess(res, "post deleted successfull.");
+	cloudinary.api.delete_resources(
+		[...post.files.map((file) => getPublicIdFromCloudinaryURL(file.fileUrl))],
+		async (err, result) => {
+			if (err) {
+				return next(new ApiError(500, "error occured while deleting post."));
+			}
+			console.log(result);
+			await Post.findByIdAndDelete(post._id);
+			return ApiSuccess(res, "post deleted successfull.");
+		}
+	);
 });
 
 export const getUserPosts = asyncHandler(async (req, res, next) => {
