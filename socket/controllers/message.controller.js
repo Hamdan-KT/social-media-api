@@ -299,7 +299,6 @@ export default (io, socket, userSocketMap) => {
 
 			// Delete the message
 			const deletedMessage = await Message.findByIdAndDelete(messageId);
-			console.log(deletedMessage.media);
 
 			if (deletedMessage?.media?.length > 0) {
 				const mediaToDelete = deletedMessage.media.map((file) => ({
