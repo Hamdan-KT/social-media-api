@@ -13,8 +13,10 @@ import {
 import User from "../Models/user.model.js";
 import { Chat } from "../Models/chat.model.js";
 import { Message } from "../Models/message.model.js";
+import cloudinary from "../utils/cloudinary.js";
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
+import fs from "fs";
 
 export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 	const page = parseInt(req.query.page, 10) || 1;
@@ -171,7 +173,7 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 });
 
 export const initializeChat = asyncHandler(async (req, res, next) => {
-	console.log(req.body)
+	console.log(req.body);
 	const userId = req.user?._id;
 	const participants = req.body?.participants || [];
 	const isGroupChat = req.body?.isGroupChat || false;
@@ -828,31 +830,51 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 	const files = req.files;
 	const { chatId } = req.body;
 
-	const formattedMessageFiles = files?.map((file) => {
-		let fileType;
-		// Check file type
-		if (file.mimetype.startsWith("image/")) {
-			fileType = MESSAGE_MEDIA_TYPES.IMAGE;
-		} else if (file.mimetype.startsWith("video/")) {
-			fileType = MESSAGE_MEDIA_TYPES.VIDEO;
-		} else if (file.mimetype.startsWith("audio/")) {
-			fileType = MESSAGE_MEDIA_TYPES.AUDIO;
-		}
+	const uploadToCloudinary = async (files) => {
+		const uploads = files.map((file) => {
+			let fileType;
+			// Check file type
+			if (file.mimetype.startsWith("image/")) {
+				fileType = MESSAGE_MEDIA_TYPES.IMAGE;
+			} else if (file.mimetype.startsWith("video/")) {
+				fileType = MESSAGE_MEDIA_TYPES.VIDEO;
+			} else if (file.mimetype.startsWith("audio/")) {
+				fileType = MESSAGE_MEDIA_TYPES.AUDIO;
+			}
 
-		// Get file URL
-		const fileUrl = `${req.protocol}://${req.get("host")}/assets/chat-${
-			req.user?._id
-		}/${file?.filename}`;
+			return new Promise((resolve, reject) => {
+				const uploadStream = cloudinary.uploader.upload_stream(
+					{
+						resource_type: "auto",
+						folder: `chat/${chatId}`,
+					},
+					(error, result) => {
+						if (error) return reject(error);
+						const fileUrl = result?.url;
+						resolve({
+							type: fileType,
+							url: fileUrl,
+						});
+					}
+				);
+				fs.createReadStream(file.path).pipe(uploadStream);
+			});
+		});
 
-		return {
-			type: fileType,
-			url: fileUrl,
-		};
-	});
+		// Wait for all uploads to finish
+		return Promise.all(uploads);
+	};
 
-	return ApiSuccess(
-		res,
-		"messages file uploaded successfull.",
-		formattedMessageFiles
-	);
+	await uploadToCloudinary(files)
+		.then(async (result) => {
+			// Delete temporary files
+			const deletePromises = files.map((file) =>
+				fs.promises.unlink(file?.path)
+			);
+			await Promise.all(deletePromises);
+			return ApiSuccess(res, "messages file uploaded successfull.", result);
+		})
+		.catch((error) => {
+			console.error("Error uploading files:", error);
+		});
 });

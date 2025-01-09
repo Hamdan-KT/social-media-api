@@ -6,6 +6,9 @@ import Relationship from "../Models/relationship.model.js";
 import dayjs from "dayjs";
 import { MODELS, RELATION_STATUS_TYPES } from "../utils/constants.js";
 import mongoose from "mongoose";
+import cloudinary from "../utils/cloudinary.js";
+import fs from "fs";
+import { getPublicIdFromCloudinaryURL } from "../utils/common.js";
 
 export const getUser = asyncHandler(async (req, res, next) => {
 	const userId = req.params.id;
@@ -285,16 +288,31 @@ export const updateUser = asyncHandler(async (req, res, next) => {
 });
 
 export const updateUserAvatar = asyncHandler(async (req, res, next) => {
+	console.log(req.file);
 	try {
-		const avatar = `${req.protocol}://${req.get("host")}/assets/userAvatars/${
-			req?.file?.filename
-		}`;
+		const user = await User.findOne(req.user?._id);
+
+		if (!user) {
+			return next(new ApiError(404, "user not found."));
+		}
+
+		const [deletedAvatar, uploadedAvatar] = await Promise.all([
+			cloudinary.api.delete_resources([
+				getPublicIdFromCloudinaryURL(user.avatar),
+			]),
+			cloudinary.uploader.upload(req.file?.path, {
+				resource_type: "auto",
+				folder: "useravatars",
+			}),
+		]);
+
+		await fs.promises.unlink(req.file?.path);
 
 		const updatedUser = await User.findByIdAndUpdate(
 			req.user._id,
 			{
 				$set: {
-					avatar,
+					avatar: uploadedAvatar?.url,
 				},
 			},
 			{ new: true }

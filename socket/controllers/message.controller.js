@@ -12,6 +12,8 @@ import { fileURLToPath } from "url";
 import path from "path";
 import mongoose from "mongoose";
 import { getRoleBasedCurrentChat } from "../queries/message.query.js";
+import { getPublicIdFromCloudinaryURL } from "../../utils/common.js";
+import cloudinary from "../../utils/cloudinary.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -295,17 +297,18 @@ export default (io, socket, userSocketMap) => {
 			const deletedMessage = await Message.findByIdAndDelete(messageId);
 
 			if (deletedMessage?.media?.length > 0) {
-				const deletePromises = deletedMessage?.media?.map(async (file) => {
-					const filePath = path.resolve(
-						__dirname,
-						`../..${new URL(file.url)?.pathname}`
-					);
-					console.log({ filePath });
-					if (fs.promises.access(filePath)) {
-						fs.promises.unlink(filePath);
+				await cloudinary.api.delete_resources(
+					deletedMessage.media.map((file) =>
+						getPublicIdFromCloudinaryURL(file.url)
+					),
+					(err, result) => {
+						if (err)
+							return callback({
+								status: false,
+								error: "Message not deleted, try again",
+							});
 					}
-				});
-				await Promise.all(deletePromises);
+				);
 			}
 
 			if (!deletedMessage) {
