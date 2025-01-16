@@ -62,12 +62,11 @@ export const login = asyncHandler(async (req, res, next) => {
 		}
 
 		//if enabled auth context will add that feature
-
 		const options = {
 			httpOnly: true,
+			path: "/",
 			secure: isProduction,
-			sameSite: isProduction ? "None" : "Lax",
-			// path: "/",
+			sameSite: isProduction ? "none" : "lax",
 			// maxAge: 7 * 24 * 60 * 60 * 1000,
 		};
 
@@ -113,9 +112,9 @@ export const logout = asyncHandler(async (req, res, next) => {
 
 	const options = {
 		httpOnly: true,
+		path: "/",
 		secure: isProduction,
-		sameSite: isProduction ? "None" : "Lax",
-		// path: "/",
+		sameSite: isProduction ? "none" : "lax",
 		// maxAge: 7 * 24 * 60 * 60 * 1000,
 	};
 
@@ -159,9 +158,9 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 
 			const options = {
 				httpOnly: true,
+				path: "/",
 				secure: isProduction,
-				sameSite: isProduction ? "None" : "Lax",
-				// path: "/",
+				sameSite: isProduction ? "none" : "lax",
 				// maxAge: 7 * 24 * 60 * 60 * 1000,
 			};
 

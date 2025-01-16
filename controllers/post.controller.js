@@ -8,7 +8,11 @@ import PostMedia from "../Models/postMedia.model.js";
 import Relationship from "../Models/relationship.model.js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
-import { MODELS, RELATION_STATUS_TYPES } from "../utils/constants.js";
+import {
+	MESSAGE_MEDIA_TYPES,
+	MODELS,
+	RELATION_STATUS_TYPES,
+} from "../utils/constants.js";
 import cloudinary from "../utils/cloudinary.js";
 dayjs.extend(relativeTime);
 import fs from "fs";
@@ -88,12 +92,9 @@ export const createPost = asyncHandler(async (req, res, next) => {
 				await Promise.all(deletePromises);
 
 				// Insert media into PostMedia collection
-				const insertedMedias = await PostMedia.insertMany(
-					results,
-					{
-						session,
-					}
-				);
+				const insertedMedias = await PostMedia.insertMany(results, {
+					session,
+				});
 
 				post[0].files = [...insertedMedias?.map((media) => media?._id)];
 				await post[0].save();
@@ -420,17 +421,41 @@ export const deletePost = asyncHandler(async (req, res, next) => {
 		);
 	}
 
-	cloudinary.api.delete_resources(
-		[...post.files.map((file) => getPublicIdFromCloudinaryURL(file.fileUrl))],
-		async (err, result) => {
-			if (err) {
-				return next(new ApiError(500, "error occured while deleting post."));
-			}
-			console.log(result);
-			await Post.findByIdAndDelete(post._id);
-			return ApiSuccess(res, "post deleted successfull.");
-		}
+	const mediaToDelete = post.files.map((file) => ({
+		public_id: getPublicIdFromCloudinaryURL(file.fileUrl),
+		resource_type:
+			file?.fileType === MESSAGE_MEDIA_TYPES.IMAGE
+				? MESSAGE_MEDIA_TYPES.IMAGE
+				: MESSAGE_MEDIA_TYPES.VIDEO,
+	}));
+
+	// Separate files by resource type
+	const groupedMedia = mediaToDelete.reduce(
+		(acc, media) => {
+			acc[media.resource_type].push(media.public_id);
+			return acc;
+		},
+		{ image: [], video: [] }
 	);
+
+	for (const [resourceType, publicIds] of Object.entries(groupedMedia)) {
+		if (publicIds.length > 0) {
+			await cloudinary.api.delete_resources(
+				publicIds,
+				{ resource_type: resourceType },
+				async (err, result) => {
+					if (err) {
+						return next(
+							new ApiError(500, "error occured while deleting post.")
+						);
+					}
+				}
+			);
+		}
+	}
+
+	await Post.findByIdAndDelete(post._id);
+	return ApiSuccess(res, "post deleted successfull.");
 });
 
 export const getUserPosts = asyncHandler(async (req, res, next) => {

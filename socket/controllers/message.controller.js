@@ -1,7 +1,11 @@
 import dayjs from "dayjs";
 import { Chat } from "../../Models/chat.model.js";
 import { Message } from "../../Models/message.model.js";
-import { messageStatusTypes, MODELS } from "../../utils/constants.js";
+import {
+	MESSAGE_MEDIA_TYPES,
+	messageStatusTypes,
+	MODELS,
+} from "../../utils/constants.js";
 import { messageEvents } from "../events.js";
 import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
@@ -297,18 +301,41 @@ export default (io, socket, userSocketMap) => {
 			const deletedMessage = await Message.findByIdAndDelete(messageId);
 
 			if (deletedMessage?.media?.length > 0) {
-				await cloudinary.api.delete_resources(
-					deletedMessage.media.map((file) =>
-						getPublicIdFromCloudinaryURL(file.url)
-					),
-					(err, result) => {
-						if (err)
-							return callback({
-								status: false,
-								error: "Message not deleted, try again",
-							});
-					}
+				const mediaToDelete = deletedMessage.media.map((file) => ({
+					public_id: getPublicIdFromCloudinaryURL(file.url),
+					resource_type: [
+						MESSAGE_MEDIA_TYPES.AUDIO,
+						MESSAGE_MEDIA_TYPES.VIDEO,
+					].includes(file?.type)
+						? "video"
+						: "image",
+				}));
+
+				// Separate files by resource type
+				const groupedMedia = mediaToDelete.reduce(
+					(acc, media) => {
+						acc[media.resource_type].push(media.public_id);
+						return acc;
+					},
+					{ image: [], video: [] }
 				);
+
+				for (const [resourceType, publicIds] of Object.entries(groupedMedia)) {
+					if (publicIds.length > 0) {
+						await cloudinary.api.delete_resources(
+							publicIds,
+							{ resource_type: resourceType },
+							(err, result) => {
+								if (err) {
+									return callback({
+										status: false,
+										error: "Message not deleted, try again.",
+									});
+								}
+							}
+						);
+					}
+				}
 			}
 
 			if (!deletedMessage) {
