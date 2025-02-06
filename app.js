@@ -6,12 +6,7 @@ import dotenv from "dotenv";
 import chalk from "chalk";
 dotenv.config();
 // routes imoport
-import authRoutes from "./routes/auth.routes.js";
-import userRoutes from "./routes/user.routes.js";
-import postRoutes from "./routes/post.routes.js";
-import adminRoutes from "./routes/admin.routes.js";
-import commentRoutes from "./routes/comment.routes.js";
-import messageRoutes from "./routes/message.routes.js";
+import routes from "./routes/index.routes.js";
 import passport from "passport";
 import cookieParser from "cookie-parser";
 import { Database } from "./config/database.js";
@@ -24,6 +19,8 @@ const PORT = process.env.PORT || 4000;
 const db = new Database(process.env.MONGO_URI);
 db.connect();
 
+// setting to https connections only
+app.set("trust proxy", true);
 // middlewares
 app.use(
 	cors({
@@ -43,12 +40,7 @@ app.get("/server-status", (req, res) => {
 	res.status(200).json({ message: "Server is up and running!" });
 });
 // main routes config
-app.use("/auth", authRoutes);
-app.use("/user", userRoutes);
-app.use("/post", postRoutes);
-app.use("/admin", adminRoutes);
-app.use("/comment", commentRoutes);
-app.use("/message", messageRoutes);
+app.use("/api", routes);
 
 // error-handling middleware
 app.use((err, req, res, next) => {
