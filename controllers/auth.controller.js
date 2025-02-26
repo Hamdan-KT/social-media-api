@@ -83,15 +83,17 @@ export const login = asyncHandler(async (req, res, next) => {
 		//setting current logged user session
 		req.user = loggedInUser;
 
-		return res
-			.status(200)
-			.cookie("accessToken", accessToken, options)
-			.cookie("refreshToken", refreshToken, options)
-			.json({
-				status: 200,
-				message: "user login successfull.",
-				data: { user: loggedInUser, accessToken, refreshToken },
-			});
+		return (
+			res
+				.status(200)
+				// .cookie("accessToken", accessToken, options)
+				// .cookie("refreshToken", refreshToken, options)
+				.json({
+					status: 200,
+					message: "user login successfull.",
+					data: { user: loggedInUser, accessToken, refreshToken },
+				})
+		);
 	} catch (error) {
 		return next(
 			new ApiError(400, "error occured while login, please try again.")
@@ -118,15 +120,17 @@ export const logout = asyncHandler(async (req, res, next) => {
 		// maxAge: 7 * 24 * 60 * 60 * 1000,
 	};
 
-	return res
-		.status(200)
-		.clearCookie("accessToken", options)
-		.clearCookie("refreshToken", options)
-		.json({
-			statu: 200,
-			message: "user logged out successfull.",
-			data: {},
-		});
+	return (
+		res
+			.status(200)
+			// .clearCookie("accessToken", options)
+			// .clearCookie("refreshToken", options)
+			.json({
+				statu: 200,
+				message: "user logged out successfull.",
+				data: {},
+			})
+	);
 });
 
 export const refreshToken = asyncHandler(async (req, res, next) => {
@@ -166,17 +170,22 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 
 			const accessToken = await user.generateAccessToken();
 
-			return res.status(200).cookie("accessToken", accessToken, options).json({
-				status: 200,
-				message: "access token refreshed.",
-				data: accessToken,
-			});
+			return (
+				res
+					.status(200)
+					// .cookie("accessToken", accessToken, options)
+					.json({
+						status: 200,
+						message: "access token refreshed.",
+						data: accessToken,
+					})
+			);
 		}
 	);
 });
 
 export const currentUser = asyncHandler(async (req, res) => {
-	console.log({ accessToken: req.cookies.accessToken });
+	// console.log({ accessToken: req.cookies.accessToken });
 	const user = await User.findOne({ _id: req.user._id })
 		.select("-password -savedPosts -refreshToken -followers -following")
 		.lean();
