@@ -9,13 +9,13 @@ var cookieExtractor = function (req) {
 	if (req && req.cookies?.accessToken) {
 		token = req.cookies.accessToken;
 	}
-	// console.log({ m_token: token });
+	console.log({ tokenOnVerificationCookie: token });
 	return token;
 };
 
 const opts = {
-	// jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-	jwtFromRequest: cookieExtractor || ExtractJwt.fromAuthHeaderAsBearerToken(),
+	jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+	// jwtFromRequest: cookieExtractor || ExtractJwt.fromAuthHeaderAsBearerToken(),
 	secretOrKey: process.env.JWT_SECRET,
 };
 

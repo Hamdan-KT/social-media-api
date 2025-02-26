@@ -8,11 +8,15 @@ const { Schema, model } = mongoose;
 
 const storySchema = new Schema(
 	{
-		file: {
-			type: Schema.Types.ObjectId,
-			ref: "StoryMedia",
+		fileUrl: {
+			type: String,
 			required: true,
 			trim: true,
+		},
+		fileType: {
+			type: String,
+			required: true,
+			enum: ["image", "video"],
 		},
 		aspectRatio: {
 			type: Number,
@@ -31,6 +35,12 @@ const storySchema = new Schema(
 			},
 		],
 		likes: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: MODELS.USER,
+			},
+		],
+		mentions: [
 			{
 				type: Schema.Types.ObjectId,
 				ref: MODELS.USER,
