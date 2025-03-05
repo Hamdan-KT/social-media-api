@@ -44,6 +44,11 @@ export const MESSAGE_MEDIA_TYPES = {
 	FILE: "file",
 };
 
+export const COMMON_MEDIA_TYPES = {
+	IMAGE: "image",
+	VIDEO: "video",
+};
+
 export const messageStatusTypes = {
 	SEND: "send",
 	SENDING: "sending",

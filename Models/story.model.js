@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
-import { MODELS } from "../utils/constants.js";
+import { COMMON_MEDIA_TYPES, MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -16,7 +16,7 @@ const storySchema = new Schema(
 		fileType: {
 			type: String,
 			required: true,
-			enum: ["image", "video"],
+			enum: [COMMON_MEDIA_TYPES.IMAGE, COMMON_MEDIA_TYPES.VIDEO],
 		},
 		aspectRatio: {
 			type: Number,
