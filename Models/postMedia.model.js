@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { MODELS } from "../utils/constants.js";
+import { COMMON_MEDIA_TYPES, MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -18,7 +18,7 @@ const postMediaSchema = new Schema(
 		fileType: {
 			type: String,
 			required: true,
-			enum: ["image", "video"],
+			enum: [COMMON_MEDIA_TYPES.IMAGE, COMMON_MEDIA_TYPES.VIDEO],
 		},
 		tags: [
 			{

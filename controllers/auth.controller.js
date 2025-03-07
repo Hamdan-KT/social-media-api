@@ -185,12 +185,12 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 });
 
 export const currentUser = asyncHandler(async (req, res) => {
-	// console.log({ accessToken: req.cookies.accessToken });
+	const accessToken = req.header("Authorization")?.replace("Bearer ", "");
 	const user = await User.findOne({ _id: req.user._id })
 		.select("-password -savedPosts -refreshToken -followers -following")
 		.lean();
 	return ApiSuccess(res, "current user.", {
 		user,
-		accessToken: req.cookies.accessToken,
+		accessToken,
 	});
 });
