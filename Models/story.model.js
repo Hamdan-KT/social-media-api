@@ -49,6 +49,10 @@ const storySchema = new Schema(
 		music: {
 			type: String,
 		},
+		isDisableComment: {
+			type: String,
+			default: false,
+		},
 	},
 	{
 		timestamps: true,
