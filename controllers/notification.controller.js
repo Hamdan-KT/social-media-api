@@ -35,8 +35,10 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
 		process.env.PUBLIC_VAPID_KEY,
 		process.env.PRIVATE_VAPID_KEY
 	);
+
+	console.log(userSubscription.subscription);
 	//push notification using web-push
-	webpush
+	await webpush
 		.sendNotification(userSubscription.subscription, payload)
 		.then((response) => {
 			console.log("sending successfull.");
