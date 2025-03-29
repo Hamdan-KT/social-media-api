@@ -21,6 +21,7 @@ export const subscribeNotification = asyncHandler(async (req, res, next) => {
 
 export const sendNotification = asyncHandler(async (req, res, next) => {
 	const { userId, message } = req.body;
+	console.log(req.body);
 	const userSubscription = await NotiSubscription.findOne({ userId });
 	if (!userSubscription) {
 		return next(new ApiError(404, "User subscription not found."));
@@ -38,6 +39,7 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
 	webpush
 		.sendNotification(userSubscription.subscription, payload)
 		.then((response) => {
+			console.log("sending successfull.");
 			console.log(response);
 			return ApiSuccess(res, "Notification sent successfully.", {});
 		})
