@@ -16,7 +16,10 @@ import {
 import cloudinary from "../utils/cloudinary.js";
 dayjs.extend(relativeTime);
 import fs from "fs";
-import { getPublicIdFromCloudinaryURL } from "../utils/common.js";
+import {
+	getAspectValToString,
+	getPublicIdFromCloudinaryURL,
+} from "../utils/common.js";
 
 export const createPost = asyncHandler(async (req, res, next) => {
 	const session = await mongoose.startSession();
@@ -39,7 +42,7 @@ export const createPost = asyncHandler(async (req, res, next) => {
 		const post = await Post.create(
 			[
 				{
-					aspectRatio,
+					aspectRatio: getAspectValToString(aspectRatio),
 					caption,
 					location,
 					isHideLikes,
