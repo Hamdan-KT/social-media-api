@@ -20,6 +20,7 @@ export const MODELS = {
 	USER: "users",
 	MESSAGE: "messages",
 	CHAT: "chats",
+	NOTISUBSCRIPTION: "notisubscriptions",
 };
 
 export const COMMENT_TYPES = {

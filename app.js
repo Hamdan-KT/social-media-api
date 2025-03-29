@@ -12,12 +12,20 @@ import cookieParser from "cookie-parser";
 import { Database } from "./config/database.js";
 import { ApiError } from "./utils/ApiError.js";
 import { app, server } from "./socket/index.js";
+import webPush from "web-push";
 
 const PORT = process.env.PORT || 4000;
 
 // db connection
 const db = new Database(process.env.MONGO_URI);
 db.connect();
+
+// web-push config
+webPush.setVapidDetails(
+	"mailto:hamdankz786@gmail.com",
+	process.env.PUBLIC_VAPID_KEY,
+	process.env.PRIVATE_VAPID_KEY
+);
 
 // setting to https connections only
 app.set("trust proxy", true);

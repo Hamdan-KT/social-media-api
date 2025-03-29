@@ -6,6 +6,7 @@ import storyRoutes from "./story.routes.js";
 import adminRoutes from "./admin.routes.js";
 import commentRoutes from "./comment.routes.js";
 import messageRoutes from "./message.routes.js";
+import notificationRoutes from "./notification.routes.js";
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use("/story", storyRoutes);
 router.use("/admin", adminRoutes);
 router.use("/comment", commentRoutes);
 router.use("/message", messageRoutes);
+router.use("/notification", notificationRoutes);
 
 export default router;
