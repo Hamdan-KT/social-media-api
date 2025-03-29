@@ -26,12 +26,18 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
 
 	const payload = JSON.stringify({ title: "instogram", body: message });
 
+	// // web-push config
+	// webpush.setVapidDetails(
+	// 	"mailto:hamdankz786@gmail.com",
+	// 	process.env.PUBLIC_VAPID_KEY,
+	// 	process.env.PRIVATE_VAPID_KEY
+	// );
 	//push notification using web-push
 	webpush
 		.sendNotification(userSubscription.subscription, payload)
-		.catch((err) => {
-			console.log(err);
+		.then(() => ApiSuccess(res, "Notification sent successfully.", {}))
+		.catch((error) => {
+			console.error("Push Notification Error:", error);
+			return next(new ApiError(500, "Failed to send push notification."));
 		});
-
-	return ApiSuccess(res, "notification send successfully.", {});
 });
