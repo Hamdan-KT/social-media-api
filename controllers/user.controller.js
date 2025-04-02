@@ -297,9 +297,13 @@ export const updateUserAvatar = asyncHandler(async (req, res, next) => {
 		}
 
 		const [deletedAvatar, uploadedAvatar] = await Promise.all([
-			cloudinary.api.delete_resources([
-				getPublicIdFromCloudinaryURL(user.avatar),
-			]),
+			async () => {
+				if (user?.avatar) {
+					await cloudinary.api.delete_resources([
+						getPublicIdFromCloudinaryURL(user.avatar),
+					]);
+				}
+			},
 			cloudinary.uploader.upload(req.file?.path, {
 				resource_type: "auto",
 				folder: "useravatars",
@@ -320,6 +324,7 @@ export const updateUserAvatar = asyncHandler(async (req, res, next) => {
 
 		return ApiSuccess(res, "user avatar updated successfull", updatedUser, 201);
 	} catch (error) {
+		console.log(error);
 		return next(
 			new ApiError(
 				400,

@@ -49,6 +49,7 @@ function uploadAvatar(req, res, next) {
 		}
 		
 		if (err) {
+			console.log(err)
 			return next(new ApiError(500, "error occured while uploading posts."));
 		}
 

@@ -20,12 +20,12 @@ const PORT = process.env.PORT || 4000;
 const db = new Database(process.env.MONGO_URI);
 db.connect();
 
-// web-push config
-webpush.setVapidDetails(
-	"mailto:hamdankz786@gmail.com",
-	process.env.PUBLIC_VAPID_KEY,
-	process.env.PRIVATE_VAPID_KEY
-);
+// // web-push config
+// webpush.setVapidDetails(
+// 	"mailto:hamdankz786@gmail.com",
+// 	process.env.PUBLIC_VAPID_KEY,
+// 	process.env.PRIVATE_VAPID_KEY
+// );
 
 // setting to https connections only
 app.set("trust proxy", true);
