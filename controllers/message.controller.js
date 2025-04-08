@@ -374,7 +374,7 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		{
 			$match: {
 				participants: new mongoose.Types.ObjectId(String(userId)),
-				lastMessage: { $ne: null, $exists: true },
+				// lastMessage: { $ne: null, $exists: true },
 			},
 		},
 		{ $skip: skip },

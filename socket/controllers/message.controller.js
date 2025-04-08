@@ -15,7 +15,10 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import mongoose from "mongoose";
-import { getRoleBasedCurrentChat } from "../queries/message.query.js";
+import {
+	getReciversCurrentChat,
+	getRoleBasedCurrentChat,
+} from "../queries/message.query.js";
 import { getPublicIdFromCloudinaryURL } from "../../utils/common.js";
 import cloudinary from "../../utils/cloudinary.js";
 const __filename = fileURLToPath(import.meta.url);
@@ -184,6 +187,19 @@ export default (io, socket, userSocketMap) => {
 					existingChat?._id,
 					receiverId
 				);
+
+				//test
+				let receiverCurrentChat2 = await getReciversCurrentChat(
+					existingChat?._id,
+					receiverId
+				);
+
+				console.log({ userId, receiverId });
+				console.log({ senderCurrentChat });
+				console.log({ receiverCurrentChat2 });
+
+				// console.log({ senderCurrentChat });
+				// console.log({ receiverCurrentChat });
 
 				//formatting last message time of sender's and receiver's chat
 				if (

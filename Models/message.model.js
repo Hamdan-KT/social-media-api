@@ -6,12 +6,12 @@ import {
 	MODELS,
 } from "../utils/constants.js";
 
-const { Schema, model, Types } = mongoose;
+const { Schema, model } = mongoose;
 
 // Media schema
 const MediaSchema = new Schema({
 	_id: {
-		type: Types.ObjectId,
+		type: Schema.Types.ObjectId,
 		auto: true,
 		index: true,
 		required: true,
@@ -36,12 +36,12 @@ const MediaSchema = new Schema({
 const MessageSchema = new Schema(
 	{
 		sender: {
-			type: Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: MODELS.USER,
 			required: true,
 		},
 		chat: {
-			type: Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: MODELS.CHAT,
 			required: true,
 		},
@@ -56,7 +56,7 @@ const MessageSchema = new Schema(
 			default: MESSAGE_CONTENT_TYPES.TEXT,
 		},
 		replyRef: {
-			type: Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: MODELS.MESSAGE,
 			required: function () {
 				return this.type === MESSAGE_TYPES.REPLY;
@@ -77,16 +77,16 @@ const MessageSchema = new Schema(
 			type: Object,
 			required: false,
 		},
-		deletedFor: { type: Types.ObjectId, ref: MODELS.USER },
+		deletedFor: { type: Schema.Types.ObjectId, ref: MODELS.USER },
 		reactions: [
 			{
-				user: { type: Types.ObjectId, ref: MODELS.USER },
+				user: { type: Schema.Types.ObjectId, ref: MODELS.USER },
 				emoji: { type: String }, // Store the emoji as a string (e.g., "❤️")
 			},
 		],
 		readBy: [
 			{
-				user: { type: Types.ObjectId, ref: MODELS.USER },
+				user: { type: Schema.Types.ObjectId, ref: MODELS.USER },
 				readAt: { type: Date, default: Date.now },
 			},
 		],

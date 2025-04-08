@@ -1,19 +1,19 @@
 import mongoose from "mongoose";
 import { MODELS } from "../utils/constants.js";
 
-const { Schema, model, Types } = mongoose;
+const { Schema, model } = mongoose;
 
 const ChatSchema = new Schema(
 	{
 		participants: [
 			{
-				type: Types.ObjectId,
+				type:  Schema.Types.ObjectId,
 				ref: MODELS.USER,
 				required: true,
 			},
 		],
 		lastMessage: {
-			type: Types.ObjectId,
+			type:  Schema.Types.ObjectId,
 			ref: MODELS.MESSAGE,
 		},
 		isGroupChat: {
