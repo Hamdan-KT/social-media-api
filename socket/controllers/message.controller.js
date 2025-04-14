@@ -11,18 +11,12 @@ import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 dayjs.extend(localizedFormat);
 dayjs.extend(relativeTime);
-import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import mongoose from "mongoose";
-import {
-	getReciversCurrentChat,
-	getRoleBasedCurrentChat,
-} from "../queries/message.query.js";
+import { getRoleBasedCurrentChat } from "../queries/message.query.js";
 import { getPublicIdFromCloudinaryURL } from "../../utils/common.js";
 import cloudinary from "../../utils/cloudinary.js";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export default (io, socket, userSocketMap) => {
 	const userId = socket.handshake.query.userId;
@@ -37,7 +31,6 @@ export default (io, socket, userSocketMap) => {
 				content,
 				media,
 				details,
-				receiverId,
 			} = data;
 			let existingChat = null;
 
@@ -178,71 +171,34 @@ export default (io, socket, userSocketMap) => {
 				existingChat.lastMessage = message._id;
 				await existingChat.save();
 
-				//get sender's and receiver's current formatted chat to updated latest chat list
-				let senderCurrentChat = await getRoleBasedCurrentChat(
-					existingChat?._id,
-					userId
-				);
-				let receiverCurrentChat = await getRoleBasedCurrentChat(
-					existingChat?._id,
-					receiverId
-				);
+				//get current chat with latest last image and other meta data
+				let currentChat = await getRoleBasedCurrentChat(existingChat?._id);
 
-				//test
-				let receiverCurrentChat2 = await getReciversCurrentChat(
-					existingChat?._id,
-					receiverId
-				);
-
-				console.log({ userId, receiverId });
-				console.log({ senderCurrentChat });
-				console.log({ receiverCurrentChat2 });
-
-				// console.log({ senderCurrentChat });
-				// console.log({ receiverCurrentChat });
-
-				//formatting last message time of sender's and receiver's chat
-				if (
-					receiverCurrentChat?.lastMessage &&
-					senderCurrentChat?.lastMessage
-				) {
-					senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-						senderCurrentChat.lastMessage.createdAt
-					).fromNow(true);
-					receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-						receiverCurrentChat.lastMessage.createdAt
+				if (currentChat?.lastMessage) {
+					//formatting last message time of sender's and receiver's chat
+					currentChat.lastMessage.formattedCreatedAt = dayjs(
+						currentChat?.lastMessage?.createdAt
 					).fromNow(true);
 				}
 
 				// Notify all participants of the new message
-				existingChat.participants.forEach((participant) => {
-					const recipientSockets = userSocketMap.get(
-						participant._id.toString()
-					);
-					if (recipientSockets) {
-						if (participant._id.toString() !== userId) {
-							recipientSockets.forEach((socketId) => {
-								if (socketId !== socket?.id) {
-									io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
-								}
-								io.to(socketId).emit(
-									messageEvents.CHATLIST_UPDATED,
-									receiverCurrentChat
-								);
-							});
-						} else {
-							recipientSockets.forEach((socketId) => {
-								if (socketId !== socket?.id) {
-									io.to(socketId).emit(messageEvents.RECEIVE, formattedMessage);
-								}
-								io.to(socketId).emit(
-									messageEvents.CHATLIST_UPDATED,
-									senderCurrentChat
-								);
-							});
-						}
+				const allRecipientSockets = existingChat.participants.flatMap(
+					(participant) => {
+						const sockets = userSocketMap.get(participant._id.toString());
+						return sockets ? Array.from(sockets) : [];
 					}
-				});
+				);
+				// Filter out sender's socket
+				const otherSockets = allRecipientSockets.filter(
+					(id) => id !== socket?.id
+				);
+				if (otherSockets.length > 0) {
+					io.to(otherSockets).emit(messageEvents.RECEIVE, formattedMessage);
+					io.to(allRecipientSockets).emit(messageEvents.CHATLIST_UPDATED, {
+						chat: currentChat,
+						inc: 1,
+					});
+				}
 				callback({
 					status: messageStatusTypes.SEND,
 					messageId: message._id,
@@ -284,6 +240,26 @@ export default (io, socket, userSocketMap) => {
 					}
 				}
 			});
+
+			const allRecipientSocketsWithoutUser = existingChat.participants.filter(
+				(participant) => participant._id.toString() !== userId
+			);
+			const allRecipientSockets = allRecipientSocketsWithoutUser.flatMap(
+				(participant) => {
+					const sockets = userSocketMap.get(participant._id.toString());
+					return sockets ? Array.from(sockets) : [];
+				}
+			);
+			if (allRecipientSockets.length > 0) {
+				io.to(allRecipientSockets).emit(messageEvents.USER_TYPING, {
+					isTyping,
+					chatId,
+				});
+				io.to(allRecipientSockets).emit(messageEvents.USERLIST_TYPING, {
+					isTyping,
+					chatId,
+				});
+			}
 		}
 	}
 
@@ -372,50 +348,32 @@ export default (io, socket, userSocketMap) => {
 				await chat.save();
 			}
 
-			//get sender's and receiver's current formatted chat to updated latest chat list
-			let senderCurrentChat = await getRoleBasedCurrentChat(chat?._id, userId);
-			let receiverCurrentChat = await getRoleBasedCurrentChat(
-				chat?._id,
-				receiverId
-			);
+			//get current chat with latest last image and other meta data
+			let currentChat = await getRoleBasedCurrentChat(chat?._id);
 
-			//formatting last message time of sender's and receiver's chat
-			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {
-				senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-					senderCurrentChat.lastMessage.createdAt
-				).fromNow(true);
-				receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-					receiverCurrentChat.lastMessage.createdAt
+			if (currentChat?.lastMessage) {
+				//formatting last message time of sender's and receiver's chat
+				currentChat.lastMessage.formattedCreatedAt = dayjs(
+					currentChat?.lastMessage?.createdAt
 				).fromNow(true);
 			}
 
-			chat.participants.forEach((participant) => {
-				const recipientSockets = userSocketMap.get(participant._id.toString());
-				if (recipientSockets) {
-					if (participant._id.toString() !== userId) {
-						recipientSockets.forEach((socketId) => {
-							if (socketId !== socket?.id) {
-								io.to(socketId).emit(messageEvents.MESSAGE_DELETED, messageId);
-							}
-							io.to(socketId).emit(
-								messageEvents.CHATLIST_UPDATED,
-								receiverCurrentChat
-							);
-						});
-					} else {
-						recipientSockets.forEach((socketId) => {
-							if (socketId !== socket?.id) {
-								io.to(socketId).emit(messageEvents.MESSAGE_DELETED, messageId);
-							}
-							io.to(socketId).emit(
-								messageEvents.CHATLIST_UPDATED,
-								senderCurrentChat
-							);
-						});
-					}
-				}
+			const allRecipientSockets = chat.participants.flatMap((participant) => {
+				const sockets = userSocketMap.get(participant._id.toString());
+				return sockets ? Array.from(sockets) : [];
 			});
-
+			// Filter out sender's socket
+			const otherSockets = allRecipientSockets.filter(
+				(id) => id !== socket?.id
+			);
+			if (otherSockets.length > 0) {
+				io.to(otherSockets).emit(messageEvents.MESSAGE_DELETED, messageId);
+				console.log("emitting chat list update after deleting message...");
+				io.to(allRecipientSockets).emit(messageEvents.CHATLIST_UPDATED, {
+					chat: currentChat,
+					inc: -1,
+				});
+			}
 			callback({ status: true, messageId });
 		} catch (error) {
 			callback({ status: false, error: "failed to delete message." });
@@ -424,6 +382,7 @@ export default (io, socket, userSocketMap) => {
 
 	async function readMessage({ chatId, receiverId }) {
 		if (chatId) {
+			console.log({ chatId });
 			const existingChat = await Chat.findById(chatId).populate("participants");
 			if (!existingChat) {
 				return;
@@ -443,46 +402,29 @@ export default (io, socket, userSocketMap) => {
 				{ new: true }
 			);
 
-			//get sender's and receiver's current formatted chat to updated latest chat list
-			let senderCurrentChat = await getRoleBasedCurrentChat(
-				existingChat?._id,
-				userId
-			);
-			let receiverCurrentChat = await getRoleBasedCurrentChat(
-				existingChat?._id,
-				receiverId
-			);
+			//get current chat with latest last image and other meta data
+			let currentChat = await getRoleBasedCurrentChat(existingChat?._id);
 
-			//formatting last message time of sender's and receiver's chat
-			if (receiverCurrentChat?.lastMessage && senderCurrentChat?.lastMessage) {
-				senderCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-					senderCurrentChat.lastMessage.createdAt
-				).fromNow(true);
-				receiverCurrentChat.lastMessage.formattedCreatedAt = dayjs(
-					receiverCurrentChat.lastMessage.createdAt
+			if (currentChat?.lastMessage) {
+				//formatting last message time of sender's and receiver's chat
+				currentChat.lastMessage.formattedCreatedAt = dayjs(
+					currentChat?.lastMessage?.createdAt
 				).fromNow(true);
 			}
 
-			existingChat.participants.forEach((participant) => {
-				const recipientSockets = userSocketMap.get(participant._id.toString());
-				if (recipientSockets) {
-					if (participant._id.toString() !== userId) {
-						recipientSockets.forEach((socketId) => {
-							io.to(socketId).emit(
-								messageEvents.CHATLIST_UPDATED,
-								receiverCurrentChat
-							);
-						});
-					} else {
-						recipientSockets.forEach((socketId) => {
-							io.to(socketId).emit(
-								messageEvents.CHATLIST_UPDATED,
-								senderCurrentChat
-							);
-						});
-					}
+			const allRecipientSockets = existingChat.participants.flatMap(
+				(participant) => {
+					const sockets = userSocketMap.get(participant._id.toString());
+					return sockets ? Array.from(sockets) : [];
 				}
-			});
+			);
+			if (allRecipientSockets.length > 0) {
+				console.log("emitting chat list update after on reading message...");
+				io.to(allRecipientSockets).emit(messageEvents.CHATLIST_UPDATED, {
+					chat: currentChat,
+					inc: 0,
+				});
+			}
 		}
 	}
 

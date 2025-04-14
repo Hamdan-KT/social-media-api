@@ -21,6 +21,7 @@ export const MODELS = {
 	MESSAGE: "messages",
 	CHAT: "chats",
 	NOTISUBSCRIPTION: "notisubscriptions",
+	CHATMETA: "chatmetas"
 };
 
 export const COMMENT_TYPES = {
