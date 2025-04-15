@@ -348,7 +348,7 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
 				unreadMessages: 0,
-				participants: 0,
+				// participants: 0,
 			},
 		},
 	]);
@@ -374,7 +374,15 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		{
 			$match: {
 				participants: new mongoose.Types.ObjectId(String(userId)),
-				// lastMessage: { $ne: null, $exists: true },
+				$or: [
+					{
+						isGroupChat: true,
+					},
+					{
+						isGroupChat: false,
+						lastMessage: { $ne: null, $exists: true },
+					},
+				],
 			},
 		},
 		{ $skip: skip },
@@ -525,7 +533,7 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
 				unreadMessages: 0,
-				participants: 0,
+				// participants: 0,
 			},
 		},
 	]);
@@ -700,7 +708,7 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
 				unreadMessages: 0,
-				participants: 0,
+				// participants: 0,
 			},
 		},
 	]);
@@ -877,4 +885,72 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 		.catch((error) => {
 			console.error("Error uploading files:", error);
 		});
+});
+
+export const fetchChatMembers = asyncHandler(async (req, res, next) => {
+	const chatId = req.params.chatId;
+	const searchTerm = req.query.search || "";
+
+	const groupMembers = await Chat.aggregate([
+		{
+			$match: {
+				_id: new mongoose.Types.ObjectId(String(chatId)),
+			},
+		},
+		{
+			$lookup: {
+				from: MODELS.USER,
+				foreignField: "_id",
+				localField: "participants",
+				as: "participants",
+			},
+		},
+		{ $unwind: "$participants" },
+		{ $replaceRoot: { newRoot: "$participants" } },
+		{
+			$project: {
+				_id: 1,
+				userName: 1,
+				name: 1,
+				isPublic: 1,
+				isVerified: 1,
+				avatar: 1,
+				isFollowing: 1,
+			},
+		},
+	]);
+
+	return ApiSuccess(res, "chat members fetch successfull.", groupMembers);
+});
+
+export const addPeoplesToChat = asyncHandler(async (req, res, next) => {
+	console.log(req.body);
+	const chatId = req.body?.chat;
+	const participants = req.body?.participants;
+	if (!chatId) {
+		return next(new ApiError(500, "Chat is not found!"));
+	}
+
+	const chat = await Chat.findById(chatId);
+
+	if (!chat.isGroupChat) {
+		return next(
+			new ApiError(
+				500,
+				"you can't add new members to this chat, becouse this is not a group chat."
+			)
+		);
+	}
+
+	await Chat.findByIdAndUpdate(
+		chat?._id,
+		{
+			$addToSet: {
+				participants: { $each: participants },
+			},
+		},
+		{ new: true }
+	);
+
+	return ApiSuccess(res, "chat members added successfull.", {});
 });

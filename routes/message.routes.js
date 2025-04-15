@@ -1,6 +1,8 @@
 import express from "express";
 import passport from "passport";
 import {
+	addPeoplesToChat,
+	fetchChatMembers,
 	fetchChatMessages,
 	fetchUserChats,
 	getChatSearchUsers,
@@ -31,5 +33,9 @@ router.post(
 	uploadMessageMedia,
 	uploadMessageMedias
 );
+// fetch all users those included in specific chat
+router.get("/members/:chatId", requireAuth, fetchChatMembers);
+// add peoples to chat in case of group chat
+router.post("/add-members", requireAuth, addPeoplesToChat);
 
 export default router;
