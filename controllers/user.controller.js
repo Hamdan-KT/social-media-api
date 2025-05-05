@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import cloudinary from "../utils/cloudinary.js";
 import fs from "fs";
 import { getPublicIdFromCloudinaryURL } from "../utils/common.js";
+import _ from "lodash";
 
 export const getUser = asyncHandler(async (req, res, next) => {
 	const userId = req.params.id;
@@ -143,6 +144,41 @@ export const getUser = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
+			$lookup: {
+				from: MODELS.CHAT,
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{ $eq: ["$isGroupChat", false] },
+									{
+										$setIsSubset: [
+											[
+												new mongoose.Types.ObjectId(String(req.user?._id)),
+												new mongoose.Types.ObjectId(String(userId)),
+											],
+											"$participants",
+										],
+									},
+									{
+										$eq: [
+											{
+												$size: "$participants",
+											},
+											2,
+										],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: "chat",
+			},
+		},
+		{ $unwind: { path: "$chat", preserveNullAndEmptyArrays: true } },
+		{
 			$project: {
 				currentUserFollowing: 0,
 				mutualFollowingUserDetails: 0,
@@ -159,7 +195,23 @@ export const getUser = asyncHandler(async (req, res, next) => {
 		return next(new ApiError(404, "User not found."));
 	}
 
-	const user = result[0];
+	let user = result[0];
+
+	if (!_.isEmpty(user?.chat)) {
+		user = {
+			...user,
+			chat: {
+				...user?.chat,
+				receiver: {
+					_id: user?._id,
+					userName: user?.userName,
+					name: user?.name,
+					isVerified: user?.isVerified,
+					avatar: user?.avatar,
+				},
+			},
+		};
+	}
 
 	const responseData = {
 		...user,

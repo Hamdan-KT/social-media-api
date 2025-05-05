@@ -135,7 +135,8 @@ export const logout = asyncHandler(async (req, res, next) => {
 
 export const refreshToken = asyncHandler(async (req, res, next) => {
 	const incomingRefreshToken =
-		req.cookies.refreshToken || req.body.refreshToken;
+		// req.cookies.refreshToken || req.body.refreshToken;
+		req.body.refreshToken;
 
 	if (!incomingRefreshToken) {
 		return next(new ApiError(403, "unauthorized request."));
@@ -149,7 +150,6 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 		async (err, decodedToken) => {
 			if (err) return next(new ApiError(403, "invalid refresh token."));
 			// find user
-
 			const user = await User.findById(decodedToken?._id);
 
 			if (!user) {
