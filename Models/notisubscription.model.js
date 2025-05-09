@@ -7,10 +7,12 @@ const NotiSubscriptionSchema = new Schema({
 		ref: MODELS.USER,
 		required: true,
 	},
-	subscription: {
-		type: Object,
-		required: true,
-	},
+	fcmTokens: [
+		{
+			type: String,
+			unique: true,
+		},
+	],
 });
 
 const NotiSubscription = model(MODELS.NOTISUBSCRIPTION, NotiSubscriptionSchema);

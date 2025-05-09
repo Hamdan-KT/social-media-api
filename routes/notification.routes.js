@@ -1,14 +1,16 @@
 import express from "express";
 import passport from "passport";
-import { sendNotification, subscribeNotification } from "../controllers/notification.controller.js";
+import { sendFCMToken, sendNotification, subscribeNotification } from "../controllers/notification.controller.js";
 
 const router = express.Router();
 
 const requireAuth = passport.authenticate("jwt", { session: false }, null);
 
-// Create a new post (uploading content like images or videos, then saving the post)
+// subscibe for notification
 router.post("/subscribe", requireAuth, subscribeNotification);
-// Get the details of a specific post by its ID
+// send notification to clients
 router.post("/send-notification", requireAuth, sendNotification);
+// send FCM (firebase cloud messaging) to backend
+router.post("/send-fcm-token", requireAuth, sendFCMToken);
 
 export default router;
