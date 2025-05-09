@@ -11,7 +11,7 @@ coverage
 .lock-wscript
 build/Release
 node_modules
-firebase-service-account
+firebase-service-account.json
 jspm_packages
 .npm
 .node_repl_history
