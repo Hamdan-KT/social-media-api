@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 // Absolute path to the service account file
 const serviceAccount = path.resolve(
 	__dirname,
-	"../firebase-service-account.json"
+	"../utils/firebase-service-account.json"
 );
 
 let app;

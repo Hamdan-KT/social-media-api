@@ -50,7 +50,9 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
 	try {
 		const response = await messaging.sendEachForMulticast(message);
 		console.log("Notification sent:", response);
-		return ApiSuccess(res, `Notification sent: to user ${userId}`, {});
+		return ApiSuccess(res, `Notification sent: to user ${userId}`, {
+			fcmTokens: notificationSub.fcmTokens,
+		});
 	} catch (error) {
 		console.error("Error sending FCM notification:", error);
 	}
