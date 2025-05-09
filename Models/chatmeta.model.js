@@ -13,10 +13,14 @@ const chatMetaSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: MODELS.CHAT,
 		},
-		lastReadMessage: {
-			type: Schema.Types.ObjectId,
-			ref: MODELS.MESSAGE,
+		lastReadAt: {
+			type: Date,
+			default: Date.now,
 		},
+		// lastReadMessage: {
+		// 	type: Schema.Types.ObjectId,
+		// 	ref: MODELS.MESSAGE,
+		// },
 	},
 	{ timestamps: true }
 );

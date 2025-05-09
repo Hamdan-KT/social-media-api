@@ -94,6 +94,7 @@ export const getChatSearchUsers = asyncHandler(async (req, res, next) => {
 											"$participants",
 										],
 									},
+									// { $eq: ["$isGroupChat", false] },
 								],
 							},
 						},
@@ -205,60 +206,6 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 		{ $match: { _id: new mongoose.Types.ObjectId(String(chat._id)) } },
 		{
 			$lookup: {
-				from: MODELS.MESSAGE,
-				localField: "lastMessage",
-				foreignField: "_id",
-				let: { readBy: "$readBy" },
-				pipeline: [
-					{
-						$lookup: {
-							from: MODELS.USER,
-							localField: "readBy.user",
-							foreignField: "_id",
-							pipeline: [
-								{
-									$project: {
-										_id: 1,
-										userName: 1,
-										avatar: 1,
-									},
-								},
-							],
-							as: "readedUsers",
-						},
-					},
-					{
-						$addFields: {
-							readBy: {
-								$map: {
-									input: "$readBy",
-									as: "read",
-									in: {
-										user: {
-											$arrayElemAt: [
-												{
-													$filter: {
-														input: "$readedUsers",
-														as: "readUser",
-														cond: { $eq: ["$$readUser._id", "$$read.user"] },
-													},
-												},
-												0,
-											],
-										},
-										readAt: "$$read.readAt",
-									},
-								},
-							},
-						},
-					},
-				],
-				as: "lastMessage",
-			},
-		},
-		{ $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
-		{
-			$lookup: {
 				from: MODELS.USER,
 				let: { participantIds: "$participants" },
 				pipeline: [
@@ -291,45 +238,7 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
-			$lookup: {
-				from: MODELS.MESSAGE,
-				let: { participantIds: "$participants._id", chatId: "$_id" },
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$and: [
-									{
-										$eq: ["$chat", "$$chatId"],
-									},
-									{ $in: ["$sender", "$$participantIds"] },
-									{
-										$not: {
-											$in: [
-												new mongoose.Types.ObjectId(String(req.user._id)),
-												{
-													$map: {
-														input: "$readBy",
-														as: "reader",
-														in: "$$reader.user",
-													},
-												},
-											],
-										},
-									},
-								],
-							},
-						},
-					},
-				],
-				as: "unreadMessages",
-			},
-		},
-		{
 			$addFields: {
-				unreadMessagesCount: {
-					$size: "$unreadMessages",
-				},
 				receiver: {
 					$cond: {
 						if: { $eq: ["$isGroupChat", false] },
@@ -337,18 +246,6 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 						else: null,
 					},
 				},
-			},
-		},
-		{
-			$project: {
-				"lastMessage.readedUsers": 0,
-				"lastMessage.replyRef": 0,
-				"lastMessage.media": 0,
-				"lastMessage.reactions": 0,
-				"lastMessage.updatedAt": 0,
-				"lastMessage.__v": 0,
-				unreadMessages: 0,
-				// participants: 0,
 			},
 		},
 	]);
@@ -392,46 +289,15 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
-				let: { readBy: "$readBy" },
+				let: { readBy: "$readBy", isGroupChat: "$isGroupChat" },
 				pipeline: [
-					{
-						$lookup: {
-							from: MODELS.USER,
-							localField: "readBy.user",
-							foreignField: "_id",
-							pipeline: [
-								{
-									$project: {
-										_id: 1,
-										userName: 1,
-										avatar: 1,
-									},
-								},
-							],
-							as: "readedUsers",
-						},
-					},
 					{
 						$addFields: {
 							readBy: {
-								$map: {
-									input: "$readBy",
-									as: "read",
-									in: {
-										user: {
-											$arrayElemAt: [
-												{
-													$filter: {
-														input: "$readedUsers",
-														as: "readUser",
-														cond: { $eq: ["$$readUser._id", "$$read.user"] },
-													},
-												},
-												0,
-											],
-										},
-										readAt: "$$read.readAt",
-									},
+								$cond: {
+									if: { $eq: ["$$isGroupChat", false] },
+									then: "$readBy",
+									else: null,
 								},
 							},
 						},
@@ -476,44 +342,27 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 		},
 		{
 			$lookup: {
-				from: MODELS.MESSAGE,
-				let: { participantIds: "$participants._id", chatId: "$_id" },
+				from: MODELS.CHATMETA,
+				localField: "_id",
+				foreignField: "chat",
+				let: { chatId: "$_id" },
 				pipeline: [
 					{
 						$match: {
 							$expr: {
-								$and: [
-									{
-										$eq: ["$chat", "$$chatId"],
-									},
-									{ $in: ["$sender", "$$participantIds"] },
-									{
-										$not: {
-											$in: [
-												new mongoose.Types.ObjectId(String(req.user._id)),
-												{
-													$map: {
-														input: "$readBy",
-														as: "reader",
-														in: "$$reader.user",
-													},
-												},
-											],
-										},
-									},
+								$eq: [
+									"$user",
+									new mongoose.Types.ObjectId(String(req.user._id)),
 								],
 							},
 						},
 					},
 				],
-				as: "unreadMessages",
+				as: "chatMeta",
 			},
 		},
 		{
 			$addFields: {
-				unreadMessagesCount: {
-					$size: "$unreadMessages",
-				},
 				receiver: {
 					$cond: {
 						if: { $eq: ["$isGroupChat", false] },
@@ -532,8 +381,7 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
-				unreadMessages: 0,
-				// participants: 0,
+				participants: 0,
 			},
 		},
 	]);
@@ -568,46 +416,15 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 				from: MODELS.MESSAGE,
 				localField: "lastMessage",
 				foreignField: "_id",
-				let: { readBy: "$readBy" },
+				let: { readBy: "$readBy", isGroupChat: "$isGroupChat" },
 				pipeline: [
-					{
-						$lookup: {
-							from: MODELS.USER,
-							localField: "readBy.user",
-							foreignField: "_id",
-							pipeline: [
-								{
-									$project: {
-										_id: 1,
-										userName: 1,
-										avatar: 1,
-									},
-								},
-							],
-							as: "readedUsers",
-						},
-					},
 					{
 						$addFields: {
 							readBy: {
-								$map: {
-									input: "$readBy",
-									as: "read",
-									in: {
-										user: {
-											$arrayElemAt: [
-												{
-													$filter: {
-														input: "$readedUsers",
-														as: "readUser",
-														cond: { $eq: ["$$readUser._id", "$$read.user"] },
-													},
-												},
-												0,
-											],
-										},
-										readAt: "$$read.readAt",
-									},
+								$cond: {
+									if: { $eq: ["$$isGroupChat", false] },
+									then: "$readBy",
+									else: null,
 								},
 							},
 						},
@@ -651,45 +468,7 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
-			$lookup: {
-				from: MODELS.MESSAGE,
-				let: { participantIds: "$participants._id", chatId: "$_id" },
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$and: [
-									{
-										$eq: ["$chat", "$$chatId"],
-									},
-									{ $in: ["$sender", "$$participantIds"] },
-									{
-										$not: {
-											$in: [
-												new mongoose.Types.ObjectId(String(req.user._id)),
-												{
-													$map: {
-														input: "$readBy",
-														as: "reader",
-														in: "$$reader.user",
-													},
-												},
-											],
-										},
-									},
-								],
-							},
-						},
-					},
-				],
-				as: "unreadMessages",
-			},
-		},
-		{
 			$addFields: {
-				unreadMessagesCount: {
-					$size: "$unreadMessages",
-				},
 				receiver: {
 					$cond: {
 						if: { $eq: ["$isGroupChat", false] },
@@ -707,8 +486,7 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 				"lastMessage.reactions": 0,
 				"lastMessage.updatedAt": 0,
 				"lastMessage.__v": 0,
-				unreadMessages: 0,
-				// participants: 0,
+				participants: 0,
 			},
 		},
 	]);

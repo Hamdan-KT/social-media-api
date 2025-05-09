@@ -11,7 +11,7 @@ import passport from "passport";
 import cookieParser from "cookie-parser";
 import { Database } from "./config/database.js";
 import { ApiError } from "./utils/ApiError.js";
-import { app, server } from "./socket/index.js";
+import { app, server } from "./services/socket/index.js";
 import webpush from "web-push";
 
 const PORT = process.env.PORT || 4000;
@@ -42,6 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/assets", express.static("assets"));
 app.use(passport.initialize());
+
 
 // Server health check
 app.get("/server-status", (req, res) => {

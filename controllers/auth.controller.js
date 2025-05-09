@@ -82,6 +82,7 @@ export const login = asyncHandler(async (req, res, next) => {
 
 		//setting current logged user session
 		req.user = loggedInUser;
+		console.log({ userRefreshTokenOnLogin: refreshToken });
 
 		return (
 			res
@@ -142,8 +143,6 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 		return next(new ApiError(403, "unauthorized request."));
 	}
 
-	console.log({ incomingRefreshToken });
-
 	jwt.verify(
 		incomingRefreshToken,
 		process.env.JWT_REFRESH_SECRET,
@@ -155,6 +154,9 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 			if (!user) {
 				return next(new ApiError(403, "invalid refresh token"));
 			}
+
+			console.log({ incomingRefreshToken });
+			console.log({ userRefreshToken: user.refreshToken });
 
 			if (incomingRefreshToken !== user?.refreshToken) {
 				return next(new ApiError(403, "refresh token invalid or used."));

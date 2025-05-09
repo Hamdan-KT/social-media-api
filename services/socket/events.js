@@ -1,4 +1,6 @@
 export const messageEvents = {
+	JOIN: "join",
+	JOIN_CHAT: "message:join_chat",
 	SEND_MESSAGE: "message:send",
 	RECEIVE: "message:receive",
 	TYPING: "message:typing",

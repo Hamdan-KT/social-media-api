@@ -3,6 +3,8 @@ import http from "http";
 import { Server } from "socket.io";
 import messageController from "./controllers/message.controller.js";
 import chalk from "chalk";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { redisPubClient, redisSubClient } from "../../config/redis.js";
 
 export const app = express();
 export const server = http.createServer(app);
@@ -11,6 +13,7 @@ const io = new Server(server, {
 		origin: process.env.CLIENT_URL,
 		credentials: true,
 	},
+	adapter: createAdapter(redisPubClient, redisSubClient),
 });
 
 const userSocketMap = new Map();
@@ -23,40 +26,32 @@ const onConnection = (socket) => {
 //disconnection
 const onDisconnect = (socket) => {
 	console.error(chalk.white.bgRed.bold(`client disconnected: ${socket.id}`));
-	for (const [userId, socketIds] of userSocketMap.entries()) {
-		if (socketIds.has(socket.id)) {
-			socketIds.delete(socket.id);
-			if (socketIds.size === 0) {
-				userSocketMap.delete(userId); // Remove user if no sockets are left
-			}
-			break;
-		}
-	}
+	// for (const [userId, socketIds] of userSocketMap.entries()) {
+	// 	if (socketIds.has(socket.id)) {
+	// 		socketIds.delete(socket.id);
+	// 		if (socketIds.size === 0) {
+	// 			userSocketMap.delete(userId); // Remove user if no sockets are left
+	// 		}
+	// 		break;
+	// 	}
+	// }
 };
-
-const map1 = {
-	"iiher84r9iu374u": [
-		"socket1",
-		"socket2",
-	]
-}
 
 io.on("connection", (socket) => {
 	const userId = socket.handshake.query.userId;
 
 	if (userId) {
-		if (!userSocketMap.has(userId)) {
-			userSocketMap.set(userId, new Set());
-		}
-		userSocketMap.get(userId).add(socket.id);
-		console.log(
-			chalk.white.bgBlueBright.bold(
-				`user connected: ${userId} with socketID: ${socket.id}`
-			)
-		);
+		// if (!userSocketMap.has(userId)) {
+		// 	userSocketMap.set(userId, new Set());
+		// }
+		// userSocketMap.get(userId).add(socket.id);
+		// console.log(
+		// 	chalk.white.bgBlueBright.bold(
+		// 		`user connected: ${userId} with socketID: ${socket.id}`,
+		// 	),
+		// );
+		onConnection(socket);
 	}
-
-	onConnection(socket);
 
 	// handling disconnection
 	socket.on("disconnect", () => onDisconnect(socket));
