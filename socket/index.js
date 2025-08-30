@@ -34,6 +34,13 @@ const onDisconnect = (socket) => {
 	}
 };
 
+const map1 = {
+	"iiher84r9iu374u": [
+		"socket1",
+		"socket2",
+	]
+}
+
 io.on("connection", (socket) => {
 	const userId = socket.handshake.query.userId;
 
