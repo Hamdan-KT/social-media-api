@@ -7,13 +7,13 @@ const ChatSchema = new Schema(
 	{
 		participants: [
 			{
-				type:  Schema.Types.ObjectId,
+				type: Schema.Types.ObjectId,
 				ref: MODELS.USER,
 				required: true,
 			},
 		],
 		lastMessage: {
-			type:  Schema.Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: MODELS.MESSAGE,
 		},
 		isGroupChat: {
@@ -29,7 +29,17 @@ const ChatSchema = new Schema(
 			default: null,
 		},
 	},
-	{ timestamps: true }
+	{
+		timestamps: true,
+		toJSON: { virtuals: true },
+		toObject: { virtuals: true },
+	},
 );
+
+// ChatSchema.virtual("meta", {
+// 	ref: MODELS.CHATMETA,
+// 	localField: "_id",
+// 	foreignField: "chat",
+// });
 
 export const Chat = model(MODELS.CHAT, ChatSchema);

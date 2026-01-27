@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { MODELS } from "../utils/constants";
+import { MODELS } from "../utils/constants.js";
 
 const { Schema, model } = mongoose;
 
@@ -17,12 +17,12 @@ const chatMetaSchema = new Schema(
 			type: Date,
 			default: Date.now,
 		},
-		// lastReadMessage: {
-		// 	type: Schema.Types.ObjectId,
-		// 	ref: MODELS.MESSAGE,
-		// },
+		unreadMessagesCount: {
+			type: Number,
+			default: 0,
+		},
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
 
 export const ChatMeta = model(MODELS.CHATMETA, chatMetaSchema);

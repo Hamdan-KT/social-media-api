@@ -34,7 +34,7 @@ app.use(
 	cors({
 		origin: process.env.CORS_ORIGIN,
 		credentials: true,
-	})
+	}),
 );
 app.use(morgan("dev"));
 app.use(express.json());
@@ -42,7 +42,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/assets", express.static("assets"));
 app.use(passport.initialize());
-
 
 // Server health check
 app.get("/server-status", (req, res) => {
@@ -76,9 +75,18 @@ process.on("SIGINT", async () => {
 	}
 });
 
+// Global error handlers to prevent crash
+process.on("unhandledRejection", (reason, promise) => {
+	console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+	console.error("Uncaught Exception thrown:", err);
+});
+
 // start the server
 server.listen(PORT, () =>
 	console.log(
-		chalk.bgYellowBright.bold(` Server up and running on port ${PORT}! `)
-	)
+		chalk.bgYellowBright.bold(` Server up and running on port ${PORT}! `),
+	),
 );

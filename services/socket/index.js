@@ -16,11 +16,9 @@ const io = new Server(server, {
 	adapter: createAdapter(redisPubClient, redisSubClient),
 });
 
-const userSocketMap = new Map();
-
 // all controllers handler
 const onConnection = (socket) => {
-	messageController(io, socket, userSocketMap);
+	messageController(io, socket);
 };
 
 //disconnection

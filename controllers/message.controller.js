@@ -191,7 +191,7 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 		? await Chat.findOne({
 				participants: [userId, ...participants],
 				isGroupChat,
-		  })
+			})
 		: undefined;
 
 	if (!chat) {
@@ -252,7 +252,7 @@ export const initializeChat = asyncHandler(async (req, res, next) => {
 
 	if (formattedChat[0]?.lastMessage) {
 		formattedChat[0].lastMessage.createdAt = dayjs(
-			formattedChat[0].lastMessage.createdAt
+			formattedChat[0].lastMessage.createdAt,
 		).fromNow(true);
 	}
 
@@ -362,6 +362,9 @@ export const fetchUserChats = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
+			$unwind: { path: "$chatMeta", preserveNullAndEmptyArrays: true },
+		},
+		{
 			$addFields: {
 				receiver: {
 					$cond: {
@@ -468,6 +471,30 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 			},
 		},
 		{
+			$lookup: {
+				from: MODELS.CHATMETA,
+				localField: "_id",
+				foreignField: "chat",
+				let: { chatId: "$_id" },
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$eq: [
+									"$user",
+									new mongoose.Types.ObjectId(String(req.user._id)),
+								],
+							},
+						},
+					},
+				],
+				as: "chatMeta",
+			},
+		},
+		{
+			$unwind: { path: "$chatMeta", preserveNullAndEmptyArrays: true },
+		},
+		{
 			$addFields: {
 				receiver: {
 					$cond: {
@@ -493,7 +520,7 @@ export const getCurrentChat = asyncHandler(async (req, res, next) => {
 
 	if (currentChat[0]?.lastMessage) {
 		currentChat[0].lastMessage.createdAt = dayjs(
-			currentChat[0].lastMessage.createdAt
+			currentChat[0].lastMessage.createdAt,
 		).fromNow(true);
 	}
 
@@ -608,7 +635,7 @@ export const fetchChatMessages = asyncHandler(async (req, res, next) => {
 	return ApiSuccess(
 		res,
 		"chat messages fetch successfull.",
-		formattedMessages.reverse()
+		formattedMessages.reverse(),
 	);
 });
 
@@ -641,7 +668,7 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 							type: fileType,
 							url: fileUrl,
 						});
-					}
+					},
 				);
 				fs.createReadStream(file.path).pipe(uploadStream);
 			});
@@ -655,7 +682,7 @@ export const uploadMessageMedias = asyncHandler(async (req, res, next) => {
 		.then(async (result) => {
 			// Delete temporary files
 			const deletePromises = files.map((file) =>
-				fs.promises.unlink(file?.path)
+				fs.promises.unlink(file?.path),
 			);
 			await Promise.all(deletePromises);
 			return ApiSuccess(res, "messages file uploaded successfull.", result);
@@ -715,8 +742,8 @@ export const addPeoplesToChat = asyncHandler(async (req, res, next) => {
 		return next(
 			new ApiError(
 				500,
-				"you can't add new members to this chat, becouse this is not a group chat."
-			)
+				"you can't add new members to this chat, becouse this is not a group chat.",
+			),
 		);
 	}
 
@@ -727,7 +754,7 @@ export const addPeoplesToChat = asyncHandler(async (req, res, next) => {
 				participants: { $each: participants },
 			},
 		},
-		{ new: true }
+		{ new: true },
 	);
 
 	return ApiSuccess(res, "chat members added successfull.", {});

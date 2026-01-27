@@ -11,15 +11,14 @@ import relativeTime from "dayjs/plugin/relativeTime.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 dayjs.extend(localizedFormat);
 dayjs.extend(relativeTime);
-import {
-	formattedNewMessage,
-	getRoleBasedCurrentChat,
-} from "../queries/message.query.js";
+import { formattedNewMessage } from "../queries/message.query.js";
 import { getPublicIdFromCloudinaryURL } from "../../../utils/common.js";
 import cloudinary from "../../../utils/cloudinary.js";
 import { setOnlineUsers } from "../../redis/services.js";
+import { ChatMeta } from "../../../Models/chatmeta.model.js";
+import mongoose from "mongoose";
 
-export default (io, socket, userSocketMap) => {
+export default (io, socket) => {
 	const userId = socket.handshake.query.userId;
 
 	//join user to socket
@@ -44,6 +43,7 @@ export default (io, socket, userSocketMap) => {
 	//leaving chat
 	async function onLeaveChat(data) {
 		socket.leave(data?.chatId);
+		console.log(`User ${userId} left chat ${data?.chatId}`);
 	}
 
 	//send message
@@ -90,6 +90,18 @@ export default (io, socket, userSocketMap) => {
 					media,
 					details,
 				});
+
+				await ChatMeta.updateMany(
+					{
+						chat: chatId,
+						user: {
+							$in: existingChat.participants
+								.filter((p) => p._id.toString() !== userId)
+								.map((p) => p._id.toString()),
+						},
+					},
+					{ $inc: { unreadMessagesCount: 1 } },
+				);
 
 				// Update the lastMessage field in the chat
 				existingChat.lastMessage = message._id;
@@ -143,41 +155,16 @@ export default (io, socket, userSocketMap) => {
 			if (!existingChat) {
 				return;
 			}
-			existingChat.participants.forEach((participant) => {
-				if (participant._id.toString() !== userId) {
-					const recipientSockets = userSocketMap.get(
-						participant._id.toString(),
-					);
-					if (recipientSockets) {
-						recipientSockets.forEach((socketId) => {
-							io.to(socketId).emit(messageEvents.USER_TYPING, {
-								isTyping,
-								chatId,
-							});
-							io.to(socketId).emit(messageEvents.USERLIST_TYPING, {
-								isTyping,
-								chatId,
-							});
-						});
-					}
-				}
-			});
+			const allRecipientWithoutUser = existingChat.participants
+				.filter((p) => p._id.toString() !== userId)
+				.map((p) => p._id.toString());
 
-			const allRecipientSocketsWithoutUser = existingChat.participants.filter(
-				(participant) => participant._id.toString() !== userId,
-			);
-			const allRecipientSockets = allRecipientSocketsWithoutUser.flatMap(
-				(participant) => {
-					const sockets = userSocketMap.get(participant._id.toString());
-					return sockets ? Array.from(sockets) : [];
-				},
-			);
-			if (allRecipientSockets.length > 0) {
-				io.to(allRecipientSockets).emit(messageEvents.USER_TYPING, {
+			if (allRecipientWithoutUser.length > 0) {
+				io.to(chatId).except(socket.id).emit(messageEvents.USER_TYPING, {
 					isTyping,
 					chatId,
 				});
-				io.to(allRecipientSockets).emit(messageEvents.USERLIST_TYPING, {
+				io.to(allRecipientWithoutUser).emit(messageEvents.USERLIST_TYPING, {
 					isTyping,
 					chatId,
 				});
@@ -187,10 +174,15 @@ export default (io, socket, userSocketMap) => {
 
 	// unsend message
 	async function unsendChat(data, callback) {
+		const session = await mongoose.startSession();
+		session.startTransaction();
+
 		try {
-			const { messageId, receiverId, unsend = true } = data;
+			const { messageId, unsend = true } = data;
 
 			if (!messageId) {
+				await session.abortTransaction();
+				session.endSession();
 				return callback({ status: false, error: "Message ID is required" });
 			}
 
@@ -206,14 +198,76 @@ export default (io, socket, userSocketMap) => {
 					},
 					{
 						new: true,
+						session,
 					},
 				);
+				await session.commitTransaction();
+				session.endSession();
 				return callback({ status: true, messageId });
 			}
 
-			// Delete the message
-			const deletedMessage = await Message.findByIdAndDelete(messageId);
+			// 1. Perform Database Operations inside the Transaction
+			const deletedMessage = await Message.findByIdAndDelete(messageId, {
+				session,
+			});
 
+			if (!deletedMessage) {
+				await session.abortTransaction();
+				session.endSession();
+				return callback({ status: false, error: "Message not found" });
+			}
+
+			// Update the chat's last message if needed
+			const chat = await Chat.findById(
+				deletedMessage.chat,
+				{},
+				{ session },
+			).populate("participants");
+
+			// Update the unreadMessagesCount field in the chat
+			await ChatMeta.updateMany(
+				{
+					chat: chat._id,
+					user: {
+						$in: chat.participants
+							.filter((p) => p._id.toString() !== userId)
+							.map((p) => p._id.toString()),
+					},
+				},
+				{ $inc: { unreadMessagesCount: -1 } },
+			);
+
+			let formattedMessage = null;
+			if (
+				chat &&
+				chat.lastMessage &&
+				chat.lastMessage.toString() === messageId
+			) {
+				const latestMessage = await Message.findOne(
+					{ chat: chat._id },
+					{},
+					{ session },
+				)
+					.sort({ createdAt: -1 })
+					.lean()
+					.exec();
+
+				if (latestMessage) {
+					formattedMessage = {
+						...latestMessage,
+						createdAt: dayjs(latestMessage.createdAt).format("LT"),
+						formattedCreatedAt: dayjs(latestMessage.createdAt).fromNow(true),
+					};
+				}
+
+				chat.lastMessage = latestMessage ? latestMessage._id : null;
+				await chat.save({ session });
+			}
+
+			await session.commitTransaction();
+			session.endSession();
+
+			// 2. Perform External I/O (Cloudinary) OUTSIDE the transaction
 			if (deletedMessage?.media?.length > 0) {
 				const mediaToDelete = deletedMessage.media.map((file) => ({
 					public_id: getPublicIdFromCloudinaryURL(file.url),
@@ -225,7 +279,6 @@ export default (io, socket, userSocketMap) => {
 						: "image",
 				}));
 
-				// Separate files by resource type
 				const groupedMedia = mediaToDelete.reduce(
 					(acc, media) => {
 						acc[media.resource_type].push(media.public_id);
@@ -234,77 +287,53 @@ export default (io, socket, userSocketMap) => {
 					{ image: [], video: [] },
 				);
 
-				for (const [resourceType, publicIds] of Object.entries(groupedMedia)) {
-					if (publicIds.length > 0) {
-						await cloudinary.api.delete_resources(
-							publicIds,
-							{ resource_type: resourceType },
-							(err, result) => {
-								if (err) {
-									return callback({
-										status: false,
-										error: "Message not deleted, try again.",
-									});
-								}
-							},
-						);
-					}
-				}
+				const deleteFns = Object.entries(groupedMedia)
+					.filter(([_, publicIds]) => publicIds.length > 0)
+					.map(
+						([resourceType, publicIds]) =>
+							new Promise((resolve, reject) => {
+								cloudinary.api.delete_resources(
+									publicIds,
+									{ resource_type: resourceType },
+									(err, result) => (err ? reject(err) : resolve(result)),
+								);
+							}),
+					);
+
+				// the DB transaction is already closed waiting to delete media.
+				Promise.all(deleteFns)
+					.then((result) => console.log("Cloudinary Media Deleted:", result))
+					.catch((err) =>
+						console.error("Cloudinary Deletion Error (Post-Commit):", err),
+					);
 			}
 
-			if (!deletedMessage) {
-				return callback({ status: false, error: "Message not found" });
-			}
-
-			// Update the chat's last message if needed
-			const chat = await Chat.findById(deletedMessage.chat).populate(
-				"participants",
+			const allRecipientSockets = chat.participants.map((participant) =>
+				participant._id.toString(),
 			);
 
-			if (chat && chat.lastMessage.toString() === messageId) {
-				const latestMessage = await Message.findOne({ chat: chat._id })
-					.sort({ createdAt: -1 })
-					.exec();
-
-				chat.lastMessage = latestMessage ? latestMessage._id : null;
-				await chat.save();
-			}
-
-			//get current chat with latest last image and other meta data
-			let currentChat = await getRoleBasedCurrentChat(chat?._id);
-
-			if (currentChat?.lastMessage) {
-				//formatting last message time of sender's and receiver's chat
-				currentChat.lastMessage.formattedCreatedAt = dayjs(
-					currentChat?.lastMessage?.createdAt,
-				).fromNow(true);
-			}
-
-			const allRecipientSockets = chat.participants.flatMap((participant) => {
-				const sockets = userSocketMap.get(participant._id.toString());
-				return sockets ? Array.from(sockets) : [];
+			io.to(chat._id?.toString())
+				.except(socket.id)
+				.emit(messageEvents.MESSAGE_DELETED, messageId);
+			io.to(allRecipientSockets).emit(messageEvents.CHATLIST_UPDATED, {
+				chatId: chat._id?.toString(),
+				lastMessage: formattedMessage,
+				inc: -1,
 			});
-			// Filter out sender's socket
-			const otherSockets = allRecipientSockets.filter(
-				(id) => id !== socket?.id,
-			);
-			if (otherSockets.length > 0) {
-				io.to(otherSockets).emit(messageEvents.MESSAGE_DELETED, messageId);
-				console.log("emitting chat list update after deleting message...");
-				io.to(allRecipientSockets).emit(messageEvents.CHATLIST_UPDATED, {
-					chat: currentChat,
-					inc: -1,
-				});
-			}
+
 			callback({ status: true, messageId });
 		} catch (error) {
+			if (session.inTransaction()) {
+				await session.abortTransaction();
+			}
+			session.endSession();
+			console.log(error);
 			callback({ status: false, error: "failed to delete message." });
 		}
 	}
 
 	async function readMessage({ chatId }) {
 		if (chatId) {
-			console.log({ chatId });
 			const existingChat = await Chat.findById(chatId).populate("participants");
 			if (!existingChat) {
 				return;
@@ -324,6 +353,12 @@ export default (io, socket, userSocketMap) => {
 				{ new: true },
 			);
 
+			await ChatMeta.findOneAndUpdate(
+				{ chat: chatId, user: userId },
+				{ unreadMessagesCount: 0, lastReadAt: Date.now() },
+				{ new: true, upsert: true },
+			);
+
 			const allRecipientSockets = existingChat.participants.map((participant) =>
 				participant._id.toString(),
 			);
@@ -338,6 +373,7 @@ export default (io, socket, userSocketMap) => {
 	//event declarations
 	socket.on(messageEvents.JOIN, onJoin);
 	socket.on(messageEvents.JOIN_CHAT, onJoinChat);
+	socket.on(messageEvents.LEAVE_CHAT, onLeaveChat);
 	socket.on(messageEvents.SEND_MESSAGE, sendMessage);
 	socket.on(messageEvents.TYPING, typing);
 	socket.on(messageEvents.DELETE_MESSAGE, unsendChat);
